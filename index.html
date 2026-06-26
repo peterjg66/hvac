@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peter's Engineering Toolkit</title>
+    <style>
+        /* 기본 여백 초기화 및 부드러운 글꼴 설정 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            height: 100%;
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #000;
+            overflow: hidden;
+        }
+
+        /* [기본 설정] 스마트폰 가로 폭이 좁을 때: 위/아래 세로 배치 */
+        .container {
+            display: flex;
+            flex-direction: column; 
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* 좌우/위아래를 채우는 큰 버튼(카드) 디자인 */
+        .card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-decoration: none; /* 링크 밑줄 제거 */
+            color: white;
+            transition: all 0.3s ease;
+            padding: 20px;
+            text-align: center;
+        }
+
+        /* 좌측 HVAC 구역: 신뢰감을 주는 블루 계열 그라데이션 */
+        .hvac {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+        }
+
+        /* 우측 ELEC 구역: 스마트한 그린 계열 그라데이션 */
+        .elec {
+            background: linear-gradient(135deg, #0f9d58, #004d40);
+        }
+
+        /* 마우스를 올렸을 때 살짝 밝아지고 커지는 효과 (PC용) */
+        .card:hover {
+            filter: brightness(1.2);
+            font-size: 1.05rem;
+        }
+
+        .card h1 {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .card p {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            font-weight: bold;
+        }
+
+        /* [화면 반응형 설정] PC나 태블릿처럼 화면 가로가 768px 이상일 때: 좌/우 가로 배치 */
+        @media (min-width: 768px) {
+            .container {
+                flex-direction: row; /* 가로로 정렬 변경 */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 좌측: HVAC 링크 영역 -->
+        <a href="hvac_toolkit(total).html" class="card hvac">
+            <h1>HVAC</h1>
+            <p>공조 계산 및 툴킷 통합본</p>
+        </a>
+
+        <!-- 우측: ELEC 링크 영역 -->
+        <a href="elec_Ref.html" class="card elec">
+            <h1>ELEC</h1>
+            <p>전기 집계 및 레퍼런스 모듈</p>
+        </a>
+    </div>
+
+</body>
+</html>

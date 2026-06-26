@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peter's ELEC Ref' V28.2</title>
+    <style>
+        :root { 
+            --senary: #4f46e5; --septenary: #0d9488; --quinary: #ea580c; 
+            --danger: #ef4444; --bg: #f1f5f9; --card: #ffffff; 
+        }
+        body { font-family: 'Pretendard', system-ui, sans-serif; background: var(--bg); color: #1e293b; margin: 0; padding: 15px; line-height: 1.4; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 25px; padding: 20px; background: white; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1 { font-size: 1.7rem; color: var(--senary); margin: 0; font-weight: 900; }
+        
+        .dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+        @media (min-width: 850px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1250px) { .dashboard-grid { grid-template-columns: repeat(3, 1fr); } }
+
+        .card { background: var(--card); border-radius: 20px; padding: 22px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-top: 6px solid var(--senary); overflow: hidden; transition: all 0.3s ease; }
+        .card.bill { border-top-color: var(--septenary); }
+        .card.elec { border-top-color: var(--quinary); }
+        
+        .card-title { font-size: 1.35rem; font-weight: 800; margin: -22px -22px 0 -22px; padding: 22px; color: #334155; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+        .toggle-icon { font-size: 1rem; transition: transform 0.3s ease; color: #94a3b8; }
+        
+        .card-content { margin-top: 20px; animation: fadeIn 0.3s ease; }
+        /* 기본적으로 접힌 상태는 CSS가 아니라 JS에서 기기별로 결정함 */
+        .card.collapsed .card-content { display: none; }
+        .card.collapsed .toggle-icon { transform: rotate(-90deg); }
+
+        .logic-guide { margin-top: 20px; padding: 15px; border-radius: 12px; font-size: 0.85rem; line-height: 1.6; border: 1px solid rgba(0,0,0,0.05); }
+        .logic-guide.safety { background: #eff6ff; color: #1e40af; border-color: #dbeafe; }
+        .logic-guide.bill { background: #f0fdfa; color: #0f766e; border-color: #ccfbf1; }
+        .logic-title { font-weight: 900; margin-bottom: 8px; display: block; font-size: 0.95rem; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 4px; }
+        .logic-highlight { color: #ea580c; font-weight: 800; }
+
+        .input-group { margin-bottom: 15px; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; }
+        .input-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .num-input { width: 110px; padding: 6px 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1.1rem; font-weight: 700; text-align: right; outline: none; }
+        
+        input[type="range"] { width: 100%; -webkit-appearance: none; height: 7px; background: #cbd5e1; border-radius: 4px; outline: none; margin-top: 12px; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid white; background: var(--senary); }
+        .b-range::-webkit-slider-thumb { background: var(--septenary); }
+        .e-range::-webkit-slider-thumb { background: var(--quinary); }
+
+        .mode-switch, .sel-grid { display: flex; background: #e2e8f0; border-radius: 10px; padding: 5px; margin-bottom: 15px; }
+        .mode-btn, .s-btn { flex: 1; border: none; background: none; padding: 10px; font-size: 0.85rem; font-weight: bold; color: #64748b; border-radius: 7px; cursor: pointer; }
+        .mode-btn.active, .s-btn.active { background: white; color: var(--senary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .s-btn.active { color: var(--septenary); }
+
+        .btn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+        .b-btn { background: white; border: 1.5px solid #cbd5e1; padding: 12px 5px; border-radius: 10px; text-align: center; font-size: 0.85rem; font-weight: bold; color: #475569; cursor: pointer; }
+        .b-btn.active { background: #f0fdfa; border-color: var(--septenary); color: var(--septenary); }
+
+        .result-panel { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 15px; padding: 20px; margin-top: 10px; }
+        .big-res { font-size: 2.1rem; font-weight: 900; text-align: center; margin: 12px 0; word-break: keep-all; }
+        .fee-box { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; padding: 12px; background: white; border-radius: 10px; border: 1px solid #e2e8f0; }
+        
+        .elec-row { display: flex; justify-content: space-between; align-items: center; background: white; border: 1px solid #e2e8f0; padding: 12px; border-radius: 10px; margin-top: 8px; }
+        .e-val { font-size: 1.2rem; font-weight: 900; color: var(--quinary); }
+        .e-val.no { color: var(--danger); }
+
+        .alert-box { padding: 15px; border-radius: 10px; text-align: center; font-weight: bold; margin-top: 15px; font-size: 0.95rem; }
+        .alert-safe { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+        .alert-warning { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Peter's ELEC Ref'</h1>
+            <p style="margin:4px 0 0; font-size:0.9rem; color:#64748b; font-weight:bold;">V28.2 (PC/모바일 자동 최적화 버전)</p>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="card" id="card-safety">
+                <h2 class="card-title" onclick="toggleCard(this)">🧑‍🔧 전기안전 대행료 <span class="toggle-icon">▼</span></h2>
+                <div class="card-content">
+                    <div class="mode-switch">
+                        <button class="mode-btn active" id="btn-market" onclick="setFeeMode('market')">🏢 민간 시장가</button>
+                        <button class="mode-btn" id="btn-kesco" onclick="setFeeMode('kesco')">🏛️ KESCO 고시가</button>
+                    </div>
+                    <div class="input-group" style="background:#e0e7ff;">
+                        <div class="input-header"><span>수전설비 (kW)</span><input type="number" id="kwSNum" class="num-input" value="900" oninput="sync('kwS', this.value, 'range')"></div>
+                        <input type="range" id="kwSRange" min="0" max="1500" value="900" oninput="sync('kwS', this.value, 'num')">
+                    </div>
+                    <div class="input-group" style="background:#f3e8ff;">
+                        <div class="input-header"><span>비상발전 (kW)</span><input type="number" id="kwGNum" class="num-input" style="color:#9333ea;" value="200" oninput="sync('kwG', this.value, 'range')"></div>
+                        <input type="range" id="kwGRange" min="0" max="1000" value="200" oninput="sync('kwG', this.value, 'num')">
+                    </div>
+                    <div style="text-align:center; font-weight:bold; background:#e0e7ff; padding:12px; border-radius:12px; margin-bottom:15px; color:#4f46e5;">합산 용량 : <span id="totKwDisp" style="font-size:1.4rem;">1100</span> kW</div>
+                    <div class="result-panel">
+                        <div class="big-res" id="sfStatus" style="color:var(--senary); font-size:1.5rem;">판별중...</div>
+                        <div class="fee-box"><span id="sfLabel">월 예상 수수료</span><span id="sfMonth" style="font-weight:900; color:var(--senary);">0 원</span></div>
+                        <div id="sfAlert" class="alert-box"></div>
+                    </div>
+                    <div class="logic-guide safety">
+                        <span class="logic-title">💡 전기안전관리자 선임 기준</span>
+                        • <b>대행 없음:</b> 수전 75kW↓ & 발전 10kW↓ (선임 면제)<br>
+                        • <b>비상주 대행:</b> 수전 1,000kW↓ & 발전 500kW↓<br>
+                        • <b>상주 의무:</b> 수전 1,000kW↑ 또는 발전 500kW↑<br>
+                        • <b>합산 주의:</b> 총 합산 1,500kW↑ 시 대행 가중치 확인 필요
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bill" id="card-bill">
+                <h2 class="card-title" onclick="toggleCard(this)">💰 전기요금 최적화 <span class="toggle-icon">▼</span></h2>
+                <div class="card-content">
+                    <div class="btn-grid">
+                        <button class="b-btn" id="btn-house" onclick="setBillType('house')">주택용</button>
+                        <button class="b-btn" id="btn-gen1" onclick="setBillType('gen1')">일반(갑)Ⅰ</button>
+                        <button class="b-btn" id="btn-gen2" onclick="setBillType('gen2')">일반(갑)Ⅱ</button>
+                        <button class="b-btn active" id="btn-genEul" onclick="setBillType('genEul')">일반(을) 고압A</button>
+                    </div>
+                    <div class="sel-grid" id="selArea">
+                        <button class="s-btn" id="s-1" onclick="setBSel(1)">선택 I</button>
+                        <button class="s-btn active" id="s-2" onclick="setBSel(2)">선택 II</button>
+                        <button class="s-btn" id="s-3" onclick="setBSel(3)">선택 III</button>
+                    </div>
+                    <div class="input-group" style="background:#f0fdfa;"><div class="input-header"><span>사용량 (kWh)</span><input type="number" id="bKwhNum" class="num-input" value="50000" oninput="sync('bKwh', this.value, 'range')"></div><input type="range" id="bKwhRange" class="b-range" min="0" max="200000" step="500" value="50000" oninput="sync('bKwh', this.value, 'num')"></div>
+                    <div class="input-group" id="bKwGroup"><div class="input-header"><span>계약전력 (kW)</span><input type="number" id="bKwNum" class="num-input" value="350" oninput="sync('bKw', this.value, 'range')"></div><input type="range" id="bKwRange" min="5" max="1500" value="350" oninput="sync('bKw', this.value, 'num')"></div>
+                    <div class="result-panel">
+                        <div class="big-res" id="bTotal" style="color:var(--septenary); font-size: 1.85rem;">0 원</div>
+                        <div class="fee-box"><span>기본/전력량(예상)</span><span id="bDetail" style="font-weight:900;">0 / 0</span></div>
+                    </div>
+                    <div class="logic-guide bill">
+                        <span class="logic-title">💡 알기 쉬운 요금제 분류</span>
+                        • <b>주택용:</b> 계약전력 3kW ~ 20kW ↓(미만)<br>
+                        &nbsp;&nbsp;→ <span class="logic-highlight">450배수 주의:</span> 월 사용량이 [계약전력×450] 초과 시 증설 권고<br>
+                        • <b>일반용(갑):</b> <span class="logic-highlight">300kW ↓(미만)</span> / 전기실(변압기) 없음<br>
+                        • <b>일반용(을):</b> <span class="logic-highlight">300kW ↑(이상)</span> / 전기실(변압기) 있음<br><br>
+                        <span class="logic-title">🔍 고압 선택종별 (전기실 있는 경우)</span>
+                        • <b>선택 I:</b> 기본료↓ / 사용료↑ (가동시간 적음)<br>
+                        • <b>선택 II:</b> 표준형 (일반 오피스, 빌딩)<br>
+                        • <b>선택 III:</b> 기본료↑ / 사용료↓ (24시간 가동)
+                    </div>
+                </div>
+            </div>
+
+            <div class="card elec" id="card-elec">
+                <h2 class="card-title" onclick="toggleCard(this)">⚡ KEC 차단기/전선 <span class="toggle-icon">▼</span></h2>
+                <div class="card-content">
+                    <div class="input-group" style="background:#fff7ed;"><div class="input-header"><span>정격 부하 전류 (A)</span><input type="number" id="ampNum" class="num-input" value="99" step="0.1" oninput="sync('amp', this.value, 'range')"></div><input type="range" id="ampRange" min="1" max="200" step="0.1" value="99" oninput="sync('amp', this.value, 'num')"></div>
+                    <div class="result-panel">
+                        <div style="text-align:center; font-weight:bold; color:#b45309; font-size:0.85rem;">권장 차단기 용량 (In)</div>
+                        <div class="big-res" id="cbDisp" style="color:var(--quinary);">125 A</div>
+                        <div class="elec-grid">
+                            <div class="elec-row"><span>F-CV (트레이)</span><span id="val-open" class="e-val">0 SQ</span></div>
+                            <div class="elec-row"><span>F-CV (배관)</span><span id="val-pipe" class="e-val">0 SQ</span></div>
+                            <div class="elec-row" id="row-hiv"><span>HIV (배관)</span><span id="val-hiv" class="e-val">0 SQ</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleCard(el) { el.parentElement.classList.toggle('collapsed'); }
+        
+        // --- [핵심] 기기별 아코디언 상태 자동 제어 함수 ---
+        function initAccordion() {
+            const cards = document.querySelectorAll('.card');
+            // 화면 너비가 850px 미만(모바일/태블릿 세로)일 때만 모두 접기
+            if (window.innerWidth < 850) {
+                cards.forEach(card => card.classList.add('collapsed'));
+            } else {
+                // PC 버전은 모두 펼치기 (collapsed 클래스 제거)
+                cards.forEach(card => card.classList.remove('collapsed'));
+            }
+        }
+
+        function sync(id, val, targetType) {
+            let n = parseFloat(val);
+            if(targetType === 'num') document.getElementById(id+'Num').value = val;
+            else if(targetType === 'range' && !isNaN(n)) document.getElementById(id+'Range').value = n;
+            calculateAll();
+        }
+
+        let fMode = 'market', bType = 'genEul', bSel = 2;
+        function setFeeMode(m) { fMode = m; document.getElementById('btn-market').classList.toggle('active', m==='market'); document.getElementById('btn-kesco').classList.toggle('active', m==='kesco'); calculateAll(); }
+        function setBillType(t) { bType = t; ['house','gen1','gen2','genEul'].forEach(x => document.getElementById('btn-'+x).classList.toggle('active', x===t)); document.getElementById('selArea').style.display = (t==='genEul'?'flex':'none'); document.getElementById('bKwGroup').style.display = (t==='house'?'none':'block'); calculateAll(); }
+        function setBSel(s) { bSel = s; [1,2,3].forEach(x => document.getElementById('s-'+x).classList.toggle('active', s===x)); calculateAll(); }
+
+        function calculateAll() {
+            // [V26.5 오리지널 대행료 로직]
+            const kwS = parseFloat(document.getElementById('kwSNum').value) || 0, kwG = parseFloat(document.getElementById('kwGNum').value) || 0, tot = kwS + kwG;
+            document.getElementById('totKwDisp').innerText = tot;
+            let status = (kwS >= 1000 || kwG >= 500) ? '🚨 상주 의무' : (kwS < 75 && kwG < 10) ? '✅ 선임 면제' : '🏢 비상주 대행';
+            let fee = ""; let label = "월 예상 수수료";
+            if (kwS >= 1000 || kwG >= 500) { label = "월 예상 급여"; fee = "약 300~400만"; } 
+            else { label = "월 예상 수수료"; fee = (tot < 100) ? (fMode === 'market' ? '약 8~10만' : '약 13만') : (tot < 300) ? (fMode === 'market' ? '약 11~15만' : '약 16~21만') : (tot < 500) ? (fMode === 'market' ? '약 15~25만' : '약 25~33만') : (tot < 700) ? (fMode === 'market' ? '약 25~40만' : '약 40~49만') : (tot < 1000) ? (fMode === 'market' ? '약 40~60만' : '약 58~72만') : (fMode === 'market' ? '약 60~80만' : '약 75~95만'); }
+            document.getElementById('sfStatus').innerText = status; document.getElementById('sfLabel').innerText = label; document.getElementById('sfMonth').innerText = fee + " 원";
+            document.getElementById('sfAlert').innerText = (kwS >= 1000 || kwG >= 500) ? "⚠️ 상주 관리자 채용 필수 구간" : "✅ 대행 계약 가능 구간";
+            document.getElementById('sfAlert').className = "alert-box " + (kwS >= 1000 || kwG >= 500 ? "alert-warning" : "alert-safe");
+
+            // [V26.5 오리지널 요금 로직]
+            const kwh = parseFloat(document.getElementById('bKwhNum').value) || 0, kw = parseFloat(document.getElementById('bKwNum').value) || 0;
+            const rTable = { genEul: { 1: { b: 7170, e: 145.5 }, 2: { b: 8320, e: 135.0 }, 3: { b: 9810, e: 125.2 } }, gen2: { 1: { b: 7100, e: 130.0 }, 2: { b: 8230, e: 120.0 } } };
+            let base = 0, eng = 0;
+            if (bType === 'genEul') { const r = rTable.genEul[bSel]; base = kw * r.b; eng = kwh * r.e; } 
+            else if (bType === 'gen2') { const r = rTable.gen2[bSel] || rTable.gen2[2]; base = kw * r.b; eng = kwh * r.e; } 
+            else if (bType === 'gen1') { base = kw * 6160; eng = kwh * 105.7; } 
+            else { if (kwh <= 200) { base = 910; eng = kwh * 120; } else if (kwh <= 400) { base = 1600; eng = 24000 + (kwh - 200) * 214.6; } else { base = 7300; eng = 66920 + (kwh - 400) * 307.3; } }
+            let total = (base + eng + (kwh * 14)) * 1.132;
+            document.getElementById('bTotal').innerText = (Math.floor(total / 10) * 10).toLocaleString() + " 원"; 
+            document.getElementById('bDetail').innerText = Math.round(base).toLocaleString() + " / " + Math.round(eng).toLocaleString();
+
+            // [V26.5 오리지널 KEC 로직]
+            const kecData = [{sq:'2.5', o:25, p:23, h:17.5}, {sq:'4', o:34, p:31, h:23}, {sq:'6', o:43, p:40, h:29}, {sq:'10', o:60, p:54, h:39}, {sq:'16', o:80, p:73, h:52}, {sq:'25', o:105, p:95, h:68}, {sq:'35', o:130, p:117, h:83}, {sq:'50', o:158, p:141, h:99}, {sq:'70', o:202, p:179, h:125}, {sq:'95', o:246, p:216, h:150}];
+            let amp = parseFloat(document.getElementById('ampNum').value) || 0;
+            let cb = [15,20,30,40,50,60,75,100,125,150,175,200].find(c => c >= amp * 1.25) || 200;
+            document.getElementById('cbDisp').innerText = cb + ' A';
+            document.getElementById('val-open').innerText = (kecData.find(r => r.o >= cb)||{sq:'초과'}).sq + ' SQ';
+            document.getElementById('val-pipe').innerText = (kecData.find(r => r.p >= cb)||{sq:'초과'}).sq + ' SQ';
+            let hRow = kecData.find(r => r.h >= cb);
+            if (!hRow || parseInt(hRow.sq) >= 70) { document.getElementById('row-hiv').className = 'elec-row no-pass'; document.getElementById('val-hiv').innerText = '시공불가'; document.getElementById('val-hiv').className = 'e-val no'; } 
+            else { document.getElementById('row-hiv').className = 'elec-row'; document.getElementById('val-hiv').innerText = hRow.sq + ' SQ'; document.getElementById('val-hiv').className = 'e-val'; }
+        }
+
+        window.onload = function() {
+            initAccordion(); // 초기 화면 판별 후 아코디언 설정
+            calculateAll();  // 계산 시작
+        };
+    </script>
+</body>
+</html>
