@@ -18,6 +18,27 @@
         .dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
         @media (min-width: 800px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 1250px) { .dashboard-grid { grid-template-columns: repeat(3, 1fr); } }
+        /* ★ 화면 사이즈에 따른 전체 화면 동적 축소 (웹 표준 방식) */
+        @media (max-width: 850px) {
+            body {
+                transform: scale(0.85);
+                transform-origin: top center; /* 기준점을 위쪽 중앙으로 설정 */
+                width: 117.6%; /* 100% / 0.85 (축소된 만큼 너비 보정) */
+                overflow-x: hidden; /* 가로 스크롤 방지 */
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                transform: scale(0.75);
+                transform-origin: top center;
+                width: 133.3%; /* 100% / 0.75 (축소된 만큼 너비 보정) */
+                overflow-x: hidden;
+            }
+            .container { 
+                padding: 10px; 
+            }
+        }
 
         .card { background: var(--card); border-radius: 16px; padding: 18px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-top: 5px solid var(--primary); transition: all 0.3s ease; }
         .card.dehumid { border-top-color: var(--secondary); }
