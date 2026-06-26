@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Peter's HVAC Toolkit V30.7</title>
     <style>
+       @media (max-width: 850px) {
+            body {
+                zoom: 0.85; /* 화면 배율 85%로 축소 */
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                zoom: 0.75; /* 화면 배율 75%로 축소 */
+            }
+            .container { 
+                padding: 10px; /* 모바일에서는 여백도 조금 줄여줍니다 */
+            }
+        }
+
         :root { 
             --primary: #0284c7; --secondary: #f59e0b; --tertiary: #10b981; 
             --quaternary: #8b5cf6; --quinary: #ea580c; --bg: #f1f5f9; --card: #ffffff; 
