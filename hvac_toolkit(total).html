@@ -5,21 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Peter's HVAC Toolkit V30.7</title>
     <style>
-       @media (max-width: 850px) {
-            body {
-                zoom: 0.85; /* 화면 배율 85%로 축소 */
-            }
-        }
-        
-        @media (max-width: 480px) {
-            body {
-                zoom: 0.75; /* 화면 배율 75%로 축소 */
-            }
-            .container { 
-                padding: 10px; /* 모바일에서는 여백도 조금 줄여줍니다 */
-            }
-        }
-
         :root { 
             --primary: #0284c7; --secondary: #f59e0b; --tertiary: #10b981; 
             --quaternary: #8b5cf6; --quinary: #ea580c; --bg: #f1f5f9; --card: #ffffff; 
@@ -33,6 +18,20 @@
         .dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
         @media (min-width: 800px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 1250px) { .dashboard-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 850px) {
+            body {
+                zoom: 0.85; /* 화면 배율 85%로 축소 */
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                zoom: 0.75; /* 화면 배율 75%로 축소 */
+            }
+            .container { 
+                padding: 10px; /* 모바일에서는 여백도 조금 줄여줍니다 */
+            }
+        }
 
         .card { background: var(--card); border-radius: 16px; padding: 18px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-top: 5px solid var(--primary); transition: all 0.3s ease; }
         .card.dehumid { border-top-color: var(--secondary); }
