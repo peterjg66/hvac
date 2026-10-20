@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>스마트 시계 & 워크 타이머 / 스톱워치</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #0b1120;
+      color: #f8fafc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #scaleWrapper {
+      display: flex;
+      transform-origin: center center;
+      transition: transform 0.1s ease-out;
+      padding: 16px;
+      gap: 16px;
+    }
+
+    .mode-landscape {
+      flex-direction: row;
+      width: 920px;
+      height: 490px;
+    }
+
+    .mode-portrait {
+      flex-direction: column;
+      width: 440px;
+      height: 790px;
+    }
+
+    .card {
+      flex: 1;
+      background: #1e293b;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      border: 1.5px solid #334155;
+      min-width: 0;
+      min-height: 0;
+      position: relative;
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    /* 시계 영역 */
+    .analog-clock {
+      position: relative;
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      background: #0f172a;
+      border: 3px solid #475569;
+      box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+      margin: 8px 0;
+    }
+
+    /* 정밀 벡터 눈금 SVG 캔버스 */
+    .clock-dial-svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 164px;
+      height: 164px;
+      pointer-events: none;
+    }
+
+    .hand {
+      position: absolute;
+      left: 50%;
+      bottom: 50%;
+      transform-origin: 50% 100%;
+      border-radius: 4px;
+    }
+    .hour-hand { 
+      width: 4px; 
+      height: 46px; 
+      margin-left: -2px;
+      background-color: #f8fafc; 
+    }
+    .minute-hand { 
+      width: 3px; 
+      height: 64px; 
+      margin-left: -1.5px;
+      background-color: #94a3b8; 
+    }
+    
+    .second-hand { 
+      width: 2px; 
+      height: 72px; 
+      margin-left: -1px;
+      background-color: #ef4444; 
+      transition: transform 0.15s cubic-bezier(0.4, 2.08, 0.55, 0.44);
+    }
+
+    .center-nut {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 8px; height: 8px;
+      background-color: #ef4444;
+      border: 2px solid #0f172a;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+    }
+
+    .clock-text-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .date-display {
+      font-size: 0.95rem;
+      color: #94a3b8;
+    }
+    .digital-clock {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #38bdf8;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 1px;
+    }
+
+    /* 화면 꺼짐 방지 버튼 */
+    .wake-lock-btn {
+      margin-top: 8px;
+      background: #334155;
+      color: #94a3b8;
+      border: 1px solid #475569;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .wake-lock-btn:active {
+      transform: scale(0.95);
+    }
+    .wake-lock-btn.active-wake {
+      background: #10b981;
+      color: #0f172a;
+      border-color: #059669;
+    }
+
+    /* 탭 패널 */
+    .tab-switch {
+      display: flex;
+      background: #0f172a;
+      padding: 4px;
+      border-radius: 10px;
+      gap: 6px;
+      width: 100%;
+      border: 1px solid #334155;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 6px;
+      border: none;
+      background: none;
+      color: #94a3b8;
+      font-size: 0.85rem;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    .panel-view {
+      display: none;
+      width: 100%;
+      height: 100%;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-view.active {
+      display: flex;
+    }
+
+    /* 타이머 패널 */
+    .settings-grid {
+      width: 100%;
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border: 1px solid #334155;
+    }
+
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+    }
+
+    .setting-inputs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .setting-inputs input {
+      width: 40px;
+      height: 26px;
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #f8fafc;
+      border-radius: 4px;
+      padding: 2px;
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .display-board {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .time-block {
+      background: #0f172a;
+      border-radius: 10px;
+      padding: 6px 12px;
+      text-align: center;
+      border: 1px solid #334155;
+      transition: all 0.2s ease;
+    }
+
+    .time-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 2px;
+    }
+
+    .main-digits {
+      font-size: 1.65rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+    .elapsed-color { color: #38bdf8; }
+    .remain-color { color: #f59e0b; }
+
+    /* 플리커링 */
+    @keyframes flickerAlert {
+      0%, 100% {
+        opacity: 1;
+        background-color: #0f172a;
+        border-color: #ef4444;
+        box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+      }
+      50% {
+        opacity: 0.3;
+        background-color: rgba(239, 68, 68, 0.25);
+        border-color: transparent;
+        box-shadow: none;
+      }
+    }
+
+    .flicker-active {
+      animation: flickerAlert 0.9s infinite ease-in-out;
+    }
+    .flicker-active .remain-color {
+      color: #ef4444 !important;
+    }
+
+    .progress-container {
+      width: 100%;
+      height: 6px;
+      background: #334155;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8, #2563eb);
+      transition: width 0.2s ease;
+    }
+
+    /* 스톱워치 패널 */
+    .stopwatch-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      width: 100%;
+      gap: 12px;
+    }
+
+    .sw-digits {
+      font-size: 3rem;
+      font-weight: 800;
+      color: #38bdf8;
+      font-variant-numeric: tabular-nums;
+      background: #0f172a;
+      width: 100%;
+      text-align: center;
+      padding: 16px 0;
+      border-radius: 14px;
+      border: 1px solid #334155;
+    }
+
+    .sw-laps-box {
+      width: 100%;
+      height: 120px;
+      background: #0f172a;
+      border-radius: 10px;
+      padding: 8px 12px;
+      overflow-y: auto;
+      border: 1px solid #334155;
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .lap-item {
+      display: flex;
+      justify-content: space-between;
+      color: #94a3b8;
+      border-bottom: 1px dashed #1e293b;
+      padding: 3px 0;
+    }
+    .lap-item span.val { color: #f8fafc; font-weight: 700; }
+
+    /* 버튼 공통 */
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+
+    button.action-btn {
+      flex: 1;
+      height: 40px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-start { background-color: #2563eb; color: #fff; }
+    .btn-stop { background-color: #ef4444; color: #fff; }
+    .btn-lap { background-color: #0284c7; color: #fff; }
+    .btn-reset { background-color: #475569; color: #f8fafc; }
+  </style>
+</head>
+<body>
+
+  <!-- 에러 자가 진단용 알림창 (오류 발생 시 화면 상단에 붉은색으로 표시됨) -->
+  <div id="errorLog" style="display:none; position:absolute; top:0; left:0; width:100%; background:#ef4444; color:#fff; padding:12px; z-index:9999; font-size:14px; font-weight:bold;"></div>
+
+  <div id="scaleWrapper" class="mode-landscape">
+    
+    <!-- 사각형 1 : 아날로그 & 디지털 시계 -->
+    <div class="card">
+      <div class="card-title">현재 시각</div>
+      
+      <div class="analog-clock" id="analogClock">
+        <svg id="clockDial" class="clock-dial-svg" viewBox="0 0 164 164"></svg>
+        <div class="hand hour-hand" id="hourHand"></div>
+        <div class="hand minute-hand" id="minuteHand"></div>
+        <div class="hand second-hand" id="secondHand"></div>
+        <div class="center-nut"></div>
+      </div>
+
+      <div class="clock-text-wrap">
+        <div id="currentDate" class="date-display">2026. 00. 00 (월)</div>
+        <div id="digitalClock" class="digital-clock">00:00:00</div>
+        <!-- 화면 꺼짐 방지 토글 버튼 -->
+        <button id="wakeLockBtn" class="wake-lock-btn" onclick="toggleWakeLock()">
+          💡 화면 꺼짐 방지: OFF
+        </button>
+      </div>
+    </div>
+
+    <!-- 사각형 2 : 스마트 타이머 & 정밀 스톱워치 -->
+    <div class="card">
+      <div class="tab-switch">
+        <button class="tab-btn active" onclick="switchPanel('timer')">스마트 타이머</button>
+        <button class="tab-btn" onclick="switchPanel('stopwatch')">정밀 스톱워치</button>
+      </div>
+
+      <!-- [패널 A] 스마트 타이머 -->
+      <div id="timerPanel" class="panel-view active">
+        <div class="settings-grid">
+          <div class="setting-row">
+            <span>시작 시간</span>
+            <div class="setting-inputs">
+              <input type="number" id="startH" min="0" max="23" value="0">시
+              <input type="number" id="startM" min="0" max="59" value="0">분
+              <input type="number" id="startS" min="0" max="59" value="0">초
+            </div>
+          </div>
+          <div class="setting-row">
+            <span>목표 시간</span>
+            <div class="setting-inputs">
+              <input type="number" id="targetH" min="0" max="99" value="4">시
+              <input type="number" id="targetM" min="0" max="59" value="10">분
+              <input type="number" id="targetS" min="0" max="59" value="0">초
+            </div>
+          </div>
+          <div class="setting-row">
+            <span>사전 알림</span>
+            <div class="setting-inputs">
+              목표 <input type="number" id="alertBeforeM" min="0" max="180" value="30">분 전 플리커링
+            </div>
+          </div>
+        </div>
+
+        <div class="display-board">
+          <div class="time-block">
+            <div class="time-label">정주행 (경과)</div>
+            <div class="main-digits elapsed-color" id="elapsedDisplay">00:00:00</div>
+          </div>
+          <div class="time-block" id="remainCard">
+            <div class="time-label">남은 시간 (Remain)</div>
+            <div class="main-digits remain-color" id="remainDisplay">04:10:00</div>
+          </div>
+        </div>
+
+        <div class="progress-container">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="btn-group">
+          <button id="timerStartBtn" class="action-btn btn-start" onclick="toggleTimer()">시작</button>
+          <button class="action-btn btn-reset" onclick="resetTimer()">초기화</button>
+        </div>
+      </div>
+
+      <!-- [패널 B] 정밀 스톱워치 -->
+      <div id="stopwatchPanel" class="panel-view">
+        <div class="stopwatch-center">
+          <div class="sw-digits" id="swDigits">00:00.00</div>
+          <div class="sw-laps-box" id="lapsList">
+            <div style="color:#64748b; text-align:center; padding-top:40px;">기록된 랩타임이 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button id="swStartBtn" class="action-btn btn-start" onclick="toggleStopwatch()">시작</button>
+          <button id="swLapBtn" class="action-btn btn-lap" onclick="recordLap()">랩 기록</button>
+          <button class="action-btn btn-reset" onclick="resetStopwatch()">초기화</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- 에러 추적용 (화면이 안 나올 때 원인 즉각 파악) ---
+    window.onerror = function(msg, url, line) {
+      const errLog = document.getElementById('errorLog');
+      errLog.style.display = 'block';
+      errLog.innerHTML += '스크립트 오류: ' + msg + ' (Line: ' + line + ')<br>';
+    };
+
+    // --- 구형 브라우저에서도 완벽히 돌아가는 화면 꺼짐 방지 ---
+    let wakeLock = null;
+    
+    function toggleWakeLock() {
+      const btn = document.getElementById('wakeLockBtn');
+      if (!navigator.wakeLock) {
+        alert('현재 기기/브라우저에서는 화면 꺼짐 방지 기능을 지원하지 않습니다.\n(Chrome, Safari 등 최신 환경을 이용해주세요)');
+        return;
+      }
+
+      if (wakeLock === null) {
+        navigator.wakeLock.request('screen')
+          .then(function(lock) {
+            wakeLock = lock;
+            btn.classList.add('active-wake');
+            btn.textContent = '💡 화면 꺼짐 방지: ON';
+            
+            wakeLock.addEventListener('release', function() {
+              wakeLock = null;
+              btn.classList.remove('active-wake');
+              btn.textContent = '💡 화면 꺼짐 방지: OFF';
+            });
+          })
+          .catch(function(err) {
+            alert('화면 꺼짐 방지 실행 실패: ' + err.message);
+          });
+      } else {
+        wakeLock.release();
+      }
+    }
+
+    document.addEventListener('visibilitychange', function() {
+      if (wakeLock !== null && document.visibilityState === 'visible' && navigator.wakeLock) {
+        navigator.wakeLock.request('screen').then(function(lock) {
+          wakeLock = lock;
+        }).catch(function(err) {
+          console.log('Wake Lock 복구 실패');
+        });
+      }
+    });
+
+    // --- 0. 화면 자동 스케일러 ---
+    const scaleWrapper = document.getElementById('scaleWrapper');
+    function autoScale() {
+      const vw = window.innerWidth || document.documentElement.clientWidth;
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+      const isPortrait = vh > vw;
+
+      let baseW, baseH;
+      if (isPortrait) {
+        scaleWrapper.className = 'mode-portrait';
+        baseW = 440;
+        baseH = 790;
+      } else {
+        scaleWrapper.className = 'mode-landscape';
+        baseW = 920;
+        baseH = 490;
+      }
+
+      const scaleX = (vw * 0.96) / baseW;
+      const scaleY = (vh * 0.96) / baseH;
+      const finalScale = Math.min(scaleX, scaleY);
+      scaleWrapper.style.transform = `scale(${finalScale})`;
+    }
+    window.addEventListener('resize', autoScale);
+    window.addEventListener('orientationchange', autoScale);
+    autoScale();
+
+    // --- 1. 아날로그 눈금 ---
+    const svgDial = document.getElementById('clockDial');
+    if(svgDial) {
+      for (let i = 0; i < 60; i++) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        const isMajor = (i % 5 === 0);
+        line.setAttribute('x1', '82');
+        line.setAttribute('y1', isMajor ? '4' : '6');
+        line.setAttribute('x2', '82');
+        line.setAttribute('y2', isMajor ? '13' : '9');
+        line.setAttribute('stroke', isMajor ? '#38bdf8' : '#64748b');
+        line.setAttribute('stroke-width', isMajor ? '2.5' : '1.2');
+        line.setAttribute('stroke-linecap', 'round');
+        line.setAttribute('transform', `rotate(${i * 6} 82 82)`);
+        svgDial.appendChild(line);
+      }
+    }
+
+    // --- 2. 실시간 시계 ---
+    let prevSec = -1;
+    function updateClock() {
+      const now = new Date();
+      const seconds = now.getSeconds();
+      const minutes = now.getMinutes();
+      const hours = now.getHours();
+
+      const secondHand = document.getElementById('secondHand');
+      if (seconds === 0 && prevSec === 59) {
+        secondHand.style.transition = 'none';
+      } else {
+        secondHand.style.transition = 'transform 0.15s cubic-bezier(0.4, 2.08, 0.55, 0.44)';
+      }
+      prevSec = seconds;
+
+      const secDeg = seconds * 6;
+      const minDeg = (minutes + seconds / 60) * 6;
+      const hourDeg = ((hours % 12) + minutes / 60) * 30;
+
+      secondHand.style.transform = `rotate(${secDeg}deg)`;
+      document.getElementById('minuteHand').style.transform = `rotate(${minDeg}deg)`;
+      document.getElementById('hourHand').style.transform = `rotate(${hourDeg}deg)`;
+
+      const days = ['일', '월', '화', '수', '목', '금', '토'];
+      const hStr = String(hours).padStart(2, '0');
+      const mStr = String(minutes).padStart(2, '0');
+      const sStr = String(seconds).padStart(2, '0');
+
+      document.getElementById('currentDate').textContent = `${now.getFullYear()}. ${String(now.getMonth() + 1).padStart(2, '0')}. ${String(now.getDate()).padStart(2, '0')} (${days[now.getDay()]})`;
+      document.getElementById('digitalClock').textContent = `${hStr}:${mStr}:${sStr}`;
+
+      requestAnimationFrame(updateClock);
+    }
+    requestAnimationFrame(updateClock);
+
+    // --- 3. 탭 전환 ---
+    function switchPanel(panelName) {
+      const btns = document.querySelectorAll('.tab-btn');
+      btns.forEach(b => b.classList.remove('active'));
+
+      const tPanel = document.getElementById('timerPanel');
+      const sPanel = document.getElementById('stopwatchPanel');
+
+      if (panelName === 'timer') {
+        btns[0].classList.add('active');
+        tPanel.classList.add('active');
+        sPanel.classList.remove('active');
+      } else {
+        btns[1].classList.add('active');
+        sPanel.classList.add('active');
+        tPanel.classList.remove('active');
+      }
+    }
+
+    // --- 4. 비프음 알림 ---
+    function playBeep(freq, count) {
+      freq = freq || 880;
+      count = count || 2;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        for (let i = 0; i < count; i++) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          
+          const startTime = ctx.currentTime + (i * 0.2);
+          osc.start(startTime);
+          osc.stop(startTime + 0.12);
+        }
+      } catch (e) {}
+    }
+
+    // --- 5. 스마트 타이머 엔진 ---
+    let timerInterval = null;
+    let isTimerRunning = false;
+    let currentSeconds = 0;
+    let hasAlertedBefore = false;
+
+    function formatTime(totalSec) {
+      const h = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+      const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+      const s = String(totalSec % 60).padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    }
+
+    function getStartTotalSeconds() {
+      const h = parseInt(document.getElementById('startH').value) || 0;
+      const m = parseInt(document.getElementById('startM').value) || 0;
+      const s = parseInt(document.getElementById('startS').value) || 0;
+      return (h * 3600) + (m * 60) + s;
+    }
+
+    function getTargetTotalSeconds() {
+      const h = parseInt(document.getElementById('targetH').value) || 0;
+      const m = parseInt(document.getElementById('targetM').value) || 0;
+      const s = parseInt(document.getElementById('targetS').value) || 0;
+      return (h * 3600) + (m * 60) + s;
+    }
+
+    function getAlertBeforeSeconds() {
+      const m = parseInt(document.getElementById('alertBeforeM').value) || 0;
+      return m * 60;
+    }
+
+    function updateDisplays() {
+      const targetSec = getTargetTotalSeconds();
+      const remainSec = Math.max(0, targetSec - currentSeconds);
+      const alertBeforeSec = getAlertBeforeSeconds();
+      const remainCard = document.getElementById('remainCard');
+
+      document.getElementById('elapsedDisplay').textContent = formatTime(currentSeconds);
+      document.getElementById('remainDisplay').textContent = formatTime(remainSec);
+
+      if (isTimerRunning && alertBeforeSec > 0 && remainSec <= alertBeforeSec && remainSec > 0) {
+        remainCard.classList.add('flicker-active');
+        if (!hasAlertedBefore) {
+          playBeep(750, 3);
+          hasAlertedBefore = true;
+        }
+      } else {
+        remainCard.classList.remove('flicker-active');
+      }
+
+      const progress = targetSec > 0 ? Math.min(100, (currentSeconds / targetSec) * 100) : 0;
+      document.getElementById('progressBar').style.width = `${progress}%`;
+    }
+
+    ['startH', 'startM', 'startS', 'targetH', 'targetM', 'targetS', 'alertBeforeM'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', function() {
+        if (!isTimerRunning) {
+          currentSeconds = getStartTotalSeconds();
+          hasAlertedBefore = false;
+          updateDisplays();
+        }
+      });
+    });
+
+    function toggleTimer() {
+      const btn = document.getElementById('timerStartBtn');
+
+      if (!isTimerRunning) {
+        if (currentSeconds === 0) {
+          currentSeconds = getStartTotalSeconds();
+        }
+
+        timerInterval = setInterval(function() {
+          currentSeconds++;
+          updateDisplays();
+
+          const targetSec = getTargetTotalSeconds();
+
+          if (currentSeconds >= targetSec) {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            document.getElementById('remainCard').classList.remove('flicker-active');
+            btn.textContent = '시작';
+            btn.className = 'action-btn btn-start';
+            playBeep(1000, 4);
+            alert('🎉 목표 시간에 도달했습니다!');
+          }
+        }, 1000);
+
+        btn.textContent = '정지';
+        btn.className = 'action-btn btn-stop';
+        isTimerRunning = true;
+      } else {
+        clearInterval(timerInterval);
+        btn.textContent = '계속';
+        btn.className = 'action-btn btn-start';
+        isTimerRunning = false;
+        document.getElementById('remainCard').classList.remove('flicker-active');
+      }
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      isTimerRunning = false;
+      hasAlertedBefore = false;
+
+      document.getElementById('startH').value = 0;
+      document.getElementById('startM').value = 0;
+      document.getElementById('startS').value = 0;
+
+      document.getElementById('targetH').value = 4;
+      document.getElementById('targetM').value = 10;
+      document.getElementById('targetS').value = 0;
+
+      document.getElementById('alertBeforeM').value = 30;
+
+      currentSeconds = getStartTotalSeconds();
+      document.getElementById('remainCard').classList.remove('flicker-active');
+      updateDisplays();
+
+      const btn = document.getElementById('timerStartBtn');
+      btn.textContent = '시작';
+      btn.className = 'action-btn btn-start';
+    }
+
+    currentSeconds = getStartTotalSeconds();
+    updateDisplays();
+
+    // --- 6. 정밀 스톱워치 엔진 ---
+    let swInterval = null;
+    let swElapsed = 0;
+    let isSwRunning = false;
+    let lapCount = 0;
+
+    function formatSwTime(ms) {
+      const totalSec = Math.floor(ms / 1000);
+      const m = String(Math.floor(totalSec / 60)).padStart(2, '0');
+      const s = String(totalSec % 60).padStart(2, '0');
+      const cs = String(Math.floor((ms % 1000) / 10)).padStart(2, '0');
+      return `${m}:${s}.${cs}`;
+    }
+
+    function toggleStopwatch() {
+      const btn = document.getElementById('swStartBtn');
+
+      if (!isSwRunning) {
+        const startTime = Date.now() - swElapsed;
+        swInterval = setInterval(function() {
+          swElapsed = Date.now() - startTime;
+          document.getElementById('swDigits').textContent = formatSwTime(swElapsed);
+        }, 10);
+
+        btn.textContent = '정지';
+        btn.className = 'action-btn btn-stop';
+        isSwRunning = true;
+      } else {
+        clearInterval(swInterval);
+        btn.textContent = '시작';
+        btn.className = 'action-btn btn-start';
+        isSwRunning = false;
+      }
+    }
+
+    function recordLap() {
+      if (!isSwRunning && swElapsed === 0) return;
+      lapCount++;
+      const lapsBox = document.getElementById('lapsList');
+      if (lapCount === 1) lapsBox.innerHTML = '';
+
+      const lapItem = document.createElement('div');
+      lapItem.className = 'lap-item';
+      lapItem.innerHTML = `<span>Lap ${lapCount}</span><span class="val">${formatSwTime(swElapsed)}</span>`;
+      lapsBox.insertBefore(lapItem, lapsBox.firstChild);
+    }
+
+    function resetStopwatch() {
+      clearInterval(swInterval);
+      isSwRunning = false;
+      swElapsed = 0;
+      lapCount = 0;
+      document.getElementById('swDigits').textContent = '00:00.00';
+      document.getElementById('lapsList').innerHTML = '<div style="color:#64748b; text-align:center; padding-top:40px;">기록된 랩타임이 없습니다.</div>';
+
+      const btn = document.getElementById('swStartBtn');
+      btn.textContent = '시작';
+      btn.className = 'action-btn btn-start';
+    }
+  </script>
+</body>
+</html>
