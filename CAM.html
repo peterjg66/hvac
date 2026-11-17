@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>차량 번호판 감별기</title>
+  <title>차량 번호판 감별기 (주행감지 4연사 버전)</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     :root {
@@ -22,8 +22,8 @@
       font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
       background: var(--bg);
       color: var(--text);
-      padding: 12px;
-      max-width: 680px;
+      padding: 10px;
+      max-width: 760px;
       margin: 0 auto;
     }
 
@@ -34,20 +34,20 @@
       justify-content: space-between;
       align-items: center;
       gap: 6px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
-    header h1 { font-size: 1.05rem; font-weight: 700; }
+    header h1 { font-size: 1rem; font-weight: 700; }
     .header-tools {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       flex-wrap: wrap;
     }
     .mini-btn {
-      padding: 6px 9px;
-      font-size: 0.76rem;
+      padding: 5px 8px;
+      font-size: 0.74rem;
       font-weight: 700;
-      border-radius: 8px;
+      border-radius: 7px;
       border: 1px solid var(--border);
       background: #334155;
       color: #f8fafc;
@@ -59,8 +59,8 @@
       color: #fff;
     }
     .badge {
-      font-size: 0.75rem;
-      padding: 5px 9px;
+      font-size: 0.73rem;
+      padding: 4px 8px;
       border-radius: 999px;
       background: #334155;
       color: #e2e8f0;
@@ -73,12 +73,12 @@
     .app-layout {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
     .left-pane, .right-pane {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
 
     /* 카메라 박스 */
@@ -95,6 +95,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      transform-origin: center center;
     }
     .guide-overlay {
       position: absolute;
@@ -106,29 +107,74 @@
       pointer-events: none;
     }
     .guide-frame {
-      width: 92%;
-      height: 44%;
+      width: 86%;
+      height: 36%;
       border: 3px solid #38bdf8;
-      border-radius: 10px;
-      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.42);
-      transition: all 0.2s ease;
+      border-radius: 8px;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+      transition: border-color 0.15s ease, width 0.2s ease, height 0.2s ease;
+    }
+    .guide-frame.triggered {
+      border-color: #facc15;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35), inset 0 0 18px rgba(250, 204, 21, 0.6);
     }
     .guide-frame.narrow {
-      width: 72%;
-      height: 26%;
+      width: 64%;
+      height: 22%;
     }
     .guide-text {
-      margin-top: 6px;
-      font-size: 0.78rem;
+      margin-top: 5px;
+      font-size: 0.74rem;
       color: #e0f2fe;
-      background: rgba(0, 0, 0, 0.65);
-      padding: 3px 10px;
-      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.72);
+      padding: 2px 9px;
+      border-radius: 10px;
     }
 
-    /* 상태 요약 카드 */
+    /* 튜닝 슬라이더 & 움직임 게이지 */
+    .tuning-bar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      font-size: 0.73rem;
+    }
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .slider-group label {
+      display: flex;
+      justify-content: space-between;
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary);
+    }
+    .motion-meter-bg {
+      width: 100%;
+      height: 6px;
+      background: #0f172a;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+    .motion-meter-fill {
+      height: 100%;
+      width: 0%;
+      background: #22c55e;
+      transition: width 0.08s linear;
+    }
+
+    /* 판별 결과 + 4연사 스냅샷 미리보기 */
     .result-card {
-      padding: 12px;
+      padding: 10px;
       border-radius: 12px;
       text-align: center;
       background: var(--card);
@@ -143,26 +189,54 @@
       border-color: var(--danger);
     }
     .plate-number {
-      font-size: 1.7rem;
+      font-size: 1.65rem;
       font-weight: 800;
       letter-spacing: 2px;
       margin: 2px 0;
     }
-    .result-status { font-size: 0.98rem; font-weight: 700; }
-    .result-memo { font-size: 0.86rem; color: #cbd5e1; margin-top: 2px; }
-    .raw-ocr { font-size: 0.74rem; color: var(--muted); margin-top: 4px; }
+    .result-status { font-size: 0.92rem; font-weight: 700; }
+    .result-memo { font-size: 0.82rem; color: #cbd5e1; margin-top: 2px; }
+
+    /* 4연사 썸네일 스트립 */
+    .burst-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .burst-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .burst-slot canvas {
+      width: 100%;
+      height: 34px;
+      background: #0f172a;
+      border: 2px solid #475569;
+      border-radius: 4px;
+      object-fit: cover;
+    }
+    .burst-slot canvas.active { border-color: #facc15; }
+    .burst-slot canvas.hit { border-color: #4ade80; box-shadow: 0 0 8px rgba(74, 222, 128, 0.6); }
+    .burst-slot span { font-size: 0.65rem; color: var(--muted); }
+
+    .raw-ocr { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
 
     /* 조작 버튼 */
     .controls {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 6px;
     }
     button, .file-label {
-      padding: 11px 8px;
+      padding: 10px 6px;
       border: none;
-      border-radius: 10px;
-      font-size: 0.88rem;
+      border-radius: 9px;
+      font-size: 0.84rem;
       font-weight: 700;
       cursor: pointer;
       text-align: center;
@@ -170,66 +244,65 @@
       background: var(--primary);
     }
     button:active { transform: scale(0.98); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
     button.secondary { background: #334155; }
     button.auto-on { background: #0d9488; }
 
-    /* 리스트 및 로그 섹션 */
+    /* 리스트 및 로그 */
     .section {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 12px;
+      padding: 10px;
     }
     .section-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
-    .section-header h2 { font-size: 0.92rem; }
+    .section-header h2 { font-size: 0.88rem; }
     textarea {
       width: 100%;
-      height: 110px;
+      height: 90px;
       background: #0f172a;
       color: var(--text);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 8px;
-      font-size: 0.88rem;
+      font-size: 0.84rem;
       line-height: 1.4;
       resize: vertical;
     }
     .list-actions {
       display: flex;
-      gap: 8px;
-      margin-top: 8px;
+      gap: 6px;
+      margin-top: 6px;
     }
     .list-actions button, .file-label {
       flex: 1;
-      padding: 9px 6px;
-      font-size: 0.82rem;
+      padding: 8px 6px;
+      font-size: 0.79rem;
     }
     .file-label { background: #475569; display: inline-block; }
     input[type="file"] { display: none; }
 
     .log-list {
       list-style: none;
-      max-height: 120px;
+      max-height: 105px;
       overflow-y: auto;
-      font-size: 0.82rem;
+      font-size: 0.79rem;
     }
     .log-list li {
       display: flex;
       justify-content: space-between;
-      padding: 5px 0;
+      padding: 4px 0;
       border-bottom: 1px solid var(--border);
     }
     .log-list li:last-child { border-bottom: none; }
     .tag-ok { color: #4ade80; font-weight: 700; }
     .tag-no { color: #f87171; font-weight: 700; }
 
-    /* 판별 결과 팝업 (모달) */
+    /* 판별 결과 팝업 */
     .popup-overlay {
       position: fixed;
       inset: 0;
@@ -244,13 +317,12 @@
     .popup-box {
       width: 100%;
       max-width: 380px;
-      background: #1e293b;
       border-radius: 16px;
-      padding: 24px 20px;
+      padding: 22px 18px;
       text-align: center;
       border: 4px solid var(--success);
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-      animation: popIn 0.18s ease-out;
+      animation: popIn 0.16s ease-out;
     }
     .popup-box.unreg {
       border-color: var(--danger);
@@ -268,30 +340,30 @@
       display: inline-block;
       padding: 5px 14px;
       border-radius: 999px;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       font-weight: 800;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       color: #fff;
     }
     .popup-box.reg .popup-badge { background: var(--success); }
     .popup-box.unreg .popup-badge { background: var(--danger); }
     .popup-plate {
-      font-size: 2.2rem;
+      font-size: 2.1rem;
       font-weight: 900;
       letter-spacing: 2px;
-      margin: 6px 0;
+      margin: 4px 0;
       color: #fff;
     }
     .popup-memo {
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       font-weight: 600;
       color: #e2e8f0;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
     .popup-close {
       width: 100%;
-      padding: 12px;
-      font-size: 1rem;
+      padding: 11px;
+      font-size: 0.95rem;
       border-radius: 10px;
       background: #334155;
       color: #fff;
@@ -308,12 +380,12 @@
       }
       .app-layout {
         display: grid;
-        grid-template-columns: 1.4fr 1fr;
-        gap: 12px;
-        height: calc(100vh - 52px);
+        grid-template-columns: 1.35fr 1fr;
+        gap: 10px;
+        height: calc(100vh - 48px);
       }
       .left-pane { height: 100%; }
-      .camera-box { aspect-ratio: auto; height: 100%; }
+      .camera-box { aspect-ratio: auto; flex: 1; }
       .right-pane { height: 100%; overflow-y: auto; padding-right: 4px; }
     }
   </style>
@@ -323,47 +395,71 @@
   <header>
     <h1>🚘 차량 번호판 감별기</h1>
     <div class="header-tools">
-      <button type="button" id="camRetryBtn" class="mini-btn">📷 카메라 켜기</button>
+      <button type="button" id="camRetryBtn" class="mini-btn">📷 카메라</button>
       <button type="button" id="wakeBtn" class="mini-btn">☀️ 화면유지: OFF</button>
       <button type="button" id="landscapeBtn" class="mini-btn">↔️ 가로모드</button>
-      <span id="engineStatus" class="badge">OCR 준비중...</span>
+      <span id="engineStatus" class="badge">OCR 로딩중...</span>
     </div>
   </header>
 
   <div class="app-layout">
-    <!-- 카메라 화면 -->
+    <!-- 왼쪽: 카메라 + 줌/명암/움직임감지 튜닝 -->
     <div class="left-pane">
       <div class="camera-box">
         <video id="video" autoplay playsinline muted></video>
         <div class="guide-overlay">
           <div class="guide-frame" id="guideFrame"></div>
-          <div class="guide-text" id="guideText">1차선 광역 인식 영역 (가로모드 권장)</div>
+          <div class="guide-text" id="guideText">차량 진입 시 자동 4연사 촬영 (정면 15~30° 각도 권장)</div>
+        </div>
+      </div>
+
+      <div class="tuning-bar">
+        <div class="slider-group">
+          <label><span>🔍 화면 줌</span><span id="zoomVal">1.3x</span></label>
+          <input type="range" id="zoomSlider" min="1.0" max="3.0" step="0.1" value="1.3" />
+        </div>
+        <div class="slider-group">
+          <label><span>🌓 흑백 기준</span><span id="threshVal">120</span></label>
+          <input type="range" id="threshSlider" min="60" max="200" step="5" value="120" />
+        </div>
+        <div class="slider-group">
+          <label><span>⚡ 움직임 기준</span><span id="motionVal">12%</span></label>
+          <input type="range" id="motionSlider" min="3" max="40" step="1" value="12" />
+          <div class="motion-meter-bg"><div class="motion-meter-fill" id="motionMeter"></div></div>
         </div>
       </div>
     </div>
 
-    <!-- 제어 및 리스트 -->
+    <!-- 오른쪽: 결과, 4연사 스냅샷, 버튼, 리스트 -->
     <div class="right-pane">
       <div id="resultCard" class="result-card">
         <div id="resultStatus" class="result-status">스캔 대기 중</div>
         <div id="plateDisplay" class="plate-number">--- ----</div>
-        <div id="resultMemo" class="result-memo">카메라로 번호판을 비춰주세요</div>
+        <div id="resultMemo" class="result-memo">[주행감지 연사]를 켜두면 차량 진입 시 자동 촬영됩니다</div>
+
+        <!-- 4연사 고속 스냅샷 미리보기 -->
+        <div class="burst-strip">
+          <div class="burst-slot"><canvas id="thumb0" width="160" height="45"></canvas><span>1컷 (0ms)</span></div>
+          <div class="burst-slot"><canvas id="thumb1" width="160" height="45"></canvas><span>2컷 (60ms)</span></div>
+          <div class="burst-slot"><canvas id="thumb2" width="160" height="45"></canvas><span>3컷 (120ms)</span></div>
+          <div class="burst-slot"><canvas id="thumb3" width="160" height="45"></canvas><span>4컷 (180ms)</span></div>
+        </div>
         <div id="rawOcr" class="raw-ocr">인식 원문: -</div>
       </div>
 
       <div class="controls">
-        <button type="button" id="scanBtn">🔍 지금 즉시 스캔</button>
-        <button type="button" id="autoBtn" class="secondary">🔄 연속스캔: OFF</button>
-        <button type="button" id="rangeBtn" class="secondary">📐 영역: 광역(1차선)</button>
-        <button type="button" id="testPopupBtn" class="secondary">🔔 팝업 테스트</button>
+        <button type="button" id="motionAutoBtn" class="secondary">⚡ 주행감지 연사: OFF</button>
+        <button type="button" id="scanBtn">🔍 수동 1회 스캔</button>
+        <button type="button" id="rangeBtn" class="secondary">📐 박스: 광역(1차선)</button>
+        <button type="button" id="invertBtn" class="secondary">🎨 반전: OFF (외교용)</button>
       </div>
 
       <div class="section">
         <div class="section-header">
           <h2>📋 등록 차량 (<span id="listCount">0</span>대)</h2>
-          <span style="font-size:0.74rem; color:var(--muted);">CSV 불러오기 시 기존 목록에 추가저장</span>
+          <span style="font-size:0.71rem; color:var(--muted);">CSV 추가저장 · 숫자앵커 보정</span>
         </div>
-        <textarea id="plateListInput" placeholder="한 줄에 하나씩 입력&#10;예: 12가3456 홍길동&#10;예: 외교001-001 대사관"></textarea>
+        <textarea id="plateListInput" placeholder="한 줄에 하나씩 입력&#10;예: 76보3415 테스트차량&#10;예: 외교001-001 대사관"></textarea>
         <div class="list-actions">
           <button type="button" id="saveListBtn">💾 리스트 저장</button>
           <label class="file-label" for="csvFileInput">📂 CSV 추가 불러오기</label>
@@ -374,7 +470,7 @@
       <div class="section">
         <div class="section-header">
           <h2>🕒 최근 감별 기록</h2>
-          <button type="button" id="clearLogBtn" class="secondary" style="padding:3px 8px; font-size:0.74rem;">지우기</button>
+          <button type="button" id="clearLogBtn" class="secondary" style="padding:3px 8px; font-size:0.72rem;">지우기</button>
         </div>
         <ul id="logList" class="log-list">
           <li style="color:var(--muted);">아직 스캔된 기록이 없습니다.</li>
@@ -383,24 +479,19 @@
     </div>
   </div>
 
-  <!-- 등록/미등록 판별 결과 팝업 -->
+  <!-- 판별 결과 팝업 -->
   <div id="popupOverlay" class="popup-overlay">
     <div id="popupBox" class="popup-box reg">
       <div id="popupBadge" class="popup-badge">✅ 등록 차량 확인</div>
-      <div id="popupPlate" class="popup-plate">12가3456</div>
-      <div id="popupMemo" class="popup-memo">홍길동</div>
+      <div id="popupPlate" class="popup-plate">76보3415</div>
+      <div id="popupMemo" class="popup-memo">테스트 샘플차량</div>
       <button type="button" id="popupCloseBtn" class="popup-close">확인 (닫기)</button>
     </div>
   </div>
 
-  <canvas id="cropCanvas" style="display:none;"></canvas>
-
   <script>
     window.addEventListener('DOMContentLoaded', () => {
       const video = document.getElementById('video');
-      const cropCanvas = document.getElementById('cropCanvas');
-      const ctx = cropCanvas.getContext('2d', { willReadFrequently: true });
-
       const camRetryBtn = document.getElementById('camRetryBtn');
       const wakeBtn = document.getElementById('wakeBtn');
       const landscapeBtn = document.getElementById('landscapeBtn');
@@ -408,16 +499,31 @@
       const guideFrame = document.getElementById('guideFrame');
       const guideText = document.getElementById('guideText');
 
+      const zoomSlider = document.getElementById('zoomSlider');
+      const zoomVal = document.getElementById('zoomVal');
+      const threshSlider = document.getElementById('threshSlider');
+      const threshVal = document.getElementById('threshVal');
+      const motionSlider = document.getElementById('motionSlider');
+      const motionVal = document.getElementById('motionVal');
+      const motionMeter = document.getElementById('motionMeter');
+
+      const motionAutoBtn = document.getElementById('motionAutoBtn');
       const scanBtn = document.getElementById('scanBtn');
-      const autoBtn = document.getElementById('autoBtn');
       const rangeBtn = document.getElementById('rangeBtn');
-      const testPopupBtn = document.getElementById('testPopupBtn');
+      const invertBtn = document.getElementById('invertBtn');
 
       const resultCard = document.getElementById('resultCard');
       const resultStatus = document.getElementById('resultStatus');
       const plateDisplay = document.getElementById('plateDisplay');
       const resultMemo = document.getElementById('resultMemo');
       const rawOcr = document.getElementById('rawOcr');
+
+      const thumbCanvases = [
+        document.getElementById('thumb0'),
+        document.getElementById('thumb1'),
+        document.getElementById('thumb2'),
+        document.getElementById('thumb3')
+      ];
 
       const plateListInput = document.getElementById('plateListInput');
       const saveListBtn = document.getElementById('saveListBtn');
@@ -433,18 +539,75 @@
       const popupMemo = document.getElementById('popupMemo');
       const popupCloseBtn = document.getElementById('popupCloseBtn');
 
+      // 오프스크린 고속 작업용 캔버스 (4연사 버퍼 + 움직임 감시용 초소형 캔버스 + OCR 전처리용)
+      const burstCanvases = Array.from({ length: 4 }, () => document.createElement('canvas'));
+      const ocrCanvas = document.createElement('canvas');
+      const ocrCtx = ocrCanvas.getContext('2d', { willReadFrequently: true });
+      const motionCanvas = document.createElement('canvas');
+      motionCanvas.width = 160;
+      motionCanvas.height = 54;
+      const motionCtx = motionCanvas.getContext('2d', { willReadFrequently: true });
+
       let worker = null;
       let ocrReady = false;
-      let isScanning = false;
-      let autoScanTimer = null;
+      let isBusy = false;
+      let motionTriggerActive = false;
       let isWideMode = true;
+      let isInverted = false;
+      let zoomFactor = 1.3;
+      let binThreshold = 120;
+      let motionThreshold = 12;
+
+      let prevGrayFrame = null;
+      let motionCooldownUntil = 0;
+
       let registeredMap = new Map();
       let lastAlertedPlate = '';
       let lastAlertTime = 0;
       let popupTimer = null;
 
       /* =========================================
-         1. 팝업 표시 기능 (등록차량 / 미등록차량)
+         1. 슬라이더 & 토글 설정
+      ========================================= */
+      zoomSlider.addEventListener('input', () => {
+        zoomFactor = parseFloat(zoomSlider.value);
+        zoomVal.textContent = zoomFactor.toFixed(1) + 'x';
+        video.style.transform = `scale(${zoomFactor})`;
+      });
+      video.style.transform = `scale(${zoomFactor})`;
+
+      threshSlider.addEventListener('input', () => {
+        binThreshold = parseInt(threshSlider.value, 10);
+        threshVal.textContent = binThreshold;
+      });
+
+      motionSlider.addEventListener('input', () => {
+        motionThreshold = parseInt(motionSlider.value, 10);
+        motionVal.textContent = motionThreshold + '%';
+      });
+
+      invertBtn.addEventListener('click', () => {
+        isInverted = !isInverted;
+        invertBtn.textContent = isInverted ? '🎨 반전: ON (어두운판)' : '🎨 반전: OFF (외교용)';
+        invertBtn.classList.toggle('auto-on', isInverted);
+      });
+
+      rangeBtn.addEventListener('click', () => {
+        isWideMode = !isWideMode;
+        prevGrayFrame = null;
+        if (isWideMode) {
+          guideFrame.classList.remove('narrow');
+          guideText.textContent = '차량 진입 시 자동 4연사 촬영 (정면 15~30° 각도 권장)';
+          rangeBtn.textContent = '📐 박스: 광역(1차선)';
+        } else {
+          guideFrame.classList.add('narrow');
+          guideText.textContent = '파란 박스 안에 번호판을 맞춰주세요';
+          rangeBtn.textContent = '📐 박스: 집중(정밀)';
+        }
+      });
+
+      /* =========================================
+         2. 팝업 표시
       ========================================= */
       function showResultPopup(plate, isRegistered, memo) {
         if (popupTimer) clearTimeout(popupTimer);
@@ -454,10 +617,9 @@
         popupMemo.textContent = memo;
         popupOverlay.classList.add('show');
 
-        // 3.5초 후 자동 닫힘
         popupTimer = setTimeout(() => {
           popupOverlay.classList.remove('show');
-        }, 3500);
+        }, 3200);
       }
 
       popupCloseBtn.addEventListener('click', () => {
@@ -472,24 +634,15 @@
         }
       });
 
-      testPopupBtn.addEventListener('click', () => {
-        const firstEntry = registeredMap.entries().next().value;
-        if (firstEntry) {
-          showResultPopup(firstEntry[0], true, firstEntry[1]);
-        } else {
-          showResultPopup('12가3456', true, '샘플 등록 차량');
-        }
-      });
-
       /* =========================================
-         2. 화면유지 (Wake Lock) & 가로모드 전환
+         3. 화면유지 & 가로모드
       ========================================= */
       let wakeLock = null;
       let keepAwakeEnabled = false;
 
       wakeBtn.addEventListener('click', async () => {
         if (!('wakeLock' in navigator)) {
-          alert('이 브라우저는 화면유지 기능을 지원하지 않습니다. 휴대폰 설정에서 화면 자동 꺼짐 시간을 늘려주세요.');
+          alert('이 브라우저는 화면유지를 지원하지 않습니다. 휴대폰 디스플레이 설정에서 자동 꺼짐 시간을 늘려주세요.');
           return;
         }
         try {
@@ -506,7 +659,7 @@
             wakeBtn.classList.remove('wake-on');
           }
         } catch (err) {
-          alert('화면유지 설정 오류: ' + err.message);
+          alert('화면유지 오류: ' + err.message);
         }
       });
 
@@ -536,23 +689,10 @@
         }
       });
 
-      rangeBtn.addEventListener('click', () => {
-        isWideMode = !isWideMode;
-        if (isWideMode) {
-          guideFrame.classList.remove('narrow');
-          guideText.textContent = '1차선 광역 인식 영역 (가로모드 권장)';
-          rangeBtn.textContent = '📐 영역: 광역(1차선)';
-        } else {
-          guideFrame.classList.add('narrow');
-          guideText.textContent = '파란 박스 안에 번호판을 맞춰주세요';
-          rangeBtn.textContent = '📐 영역: 집중(근거리)';
-        }
-      });
-
       /* =========================================
-         3. 차량 리스트 관리 & CSV 추가저장
+         4. 차량 리스트 관리 & CSV 추가저장
       ========================================= */
-      const DEFAULT_LIST = `12가3456 샘플차량1\n123나4567 샘플차량2\n외교001-001 외교차량샘플`;
+      const DEFAULT_LIST = `76보3415 테스트샘플차량\n12가3456 홍길동\n외교001-001 외교차량샘플`;
 
       function extractEntriesFromText(rawText) {
         const result = new Map();
@@ -561,7 +701,6 @@
         const diploRegex = /(외교|영사|준외|준영|국기|협정|대표)\s*(\d{3})\s*-?\s*(\d{3})/;
 
         lines.forEach(line => {
-          // CSV 쉼표/탭을 공백으로 변환
           const cleanedLine = line.replace(/[,\t]+/g, ' ').replace(/\s+/g, ' ').trim();
           if (!cleanedLine) return;
 
@@ -599,9 +738,7 @@
 
       function loadSavedList() {
         let saved = null;
-        try {
-          saved = localStorage.getItem('peter_plate_list');
-        } catch (e) {}
+        try { saved = localStorage.getItem('peter_plate_list'); } catch (e) {}
         const initialText = saved !== null ? saved : DEFAULT_LIST;
         registeredMap = extractEntriesFromText(initialText);
         plateListInput.value = initialText;
@@ -614,11 +751,9 @@
         alert(`총 ${registeredMap.size}대의 차량 번호가 저장되었습니다.`);
       });
 
-      // CSV 불러오기 -> 기존 리스트에 추가저장 (UTF-8 및 EUC-KR 자동 감지)
       csvFileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (evt) => {
           const buffer = evt.target.result;
@@ -628,17 +763,12 @@
           } catch (err) {
             text = new TextDecoder('euc-kr').decode(buffer);
           }
-
-          // 현재 입력창에 적힌 기존 리스트 먼저 반영
           registeredMap = extractEntriesFromText(plateListInput.value);
           const beforeCount = registeredMap.size;
-
-          // CSV 파일의 번호들을 기존 목록에 추가(병합)
           const importedEntries = extractEntriesFromText(text);
           importedEntries.forEach((memo, plate) => {
             registeredMap.set(plate, memo);
           });
-
           syncMapToTextareaAndStorage();
           const addedCount = registeredMap.size - beforeCount;
           alert(`CSV 파일에서 ${importedEntries.size}건을 읽어 기존 리스트에 추가 저장했습니다.\n(신규 추가: ${addedCount}대 / 전체 등록: ${registeredMap.size}대)`);
@@ -648,12 +778,11 @@
       });
 
       /* =========================================
-         4. 카메라 연결 (안전 예외 처리)
+         5. 카메라 & OCR 초기화
       ========================================= */
       async function startCamera() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           resultStatus.textContent = '⚠️ 카메라 차단됨 (HTTPS 주소 필요)';
-          resultMemo.textContent = '보안 연결(https://) 페이지에서 열어야 카메라가 작동합니다.';
           return;
         }
         try {
@@ -667,20 +796,18 @@
           });
           video.srcObject = stream;
           await video.play().catch(() => {});
-          resultStatus.textContent = '카메라 연결 완료 · 스캔 대기 중';
-          camRetryBtn.textContent = '📷 카메라 연결됨';
+          prevGrayFrame = null;
+          motionCooldownUntil = Date.now() + 1200;
+          resultStatus.textContent = '카메라 연결 완료 · 대기 중';
+          camRetryBtn.textContent = '📷 연결됨';
         } catch (err) {
           resultStatus.textContent = '⚠️ 카메라 권한 필요';
-          resultMemo.textContent = '브라우저 카메라 권한을 허용한 뒤 [카메라 켜기]를 눌러주세요.';
           alert('카메라 실행 오류: ' + err.message);
         }
       }
 
       camRetryBtn.addEventListener('click', startCamera);
 
-      /* =========================================
-         5. OCR 엔진 초기화 (Tesseract.js v5)
-      ========================================= */
       async function initOCR() {
         if (typeof Tesseract === 'undefined') {
           engineStatus.textContent = 'OCR 스크립트 오류';
@@ -689,49 +816,124 @@
         }
         try {
           worker = await Tesseract.createWorker('kor');
-          await worker.setParameters({ tessedit_pageseg_mode: '11' });
+          await worker.setParameters({
+            tessedit_pageseg_mode: '6',
+            preserve_interword_spaces: '0'
+          });
           ocrReady = true;
-          engineStatus.textContent = '스캔 준비 완료';
+          engineStatus.textContent = '주행감지 준비됨';
           engineStatus.classList.add('ready');
         } catch (err) {
           engineStatus.textContent = 'OCR 로딩 실패';
           engineStatus.classList.add('err');
-          console.error(err);
         }
       }
 
       /* =========================================
-         6. 이미지 전처리 및 번호판 스캔
+         6. 가이드 영역 계산 & 고속 4연사 캡처
       ========================================= */
-      function captureAndPreprocess() {
+      function getCropRect() {
         const vw = video.videoWidth;
         const vh = video.videoHeight;
-        if (!vw || !vh) return false;
+        if (!vw || !vh) return null;
 
-        const wRatio = isWideMode ? 0.92 : 0.72;
-        const hRatio = isWideMode ? 0.44 : 0.26;
+        const baseW = isWideMode ? 0.86 : 0.64;
+        const baseH = isWideMode ? 0.36 : 0.22;
 
-        const cropW = Math.floor(vw * wRatio);
-        const cropH = Math.floor(vh * hRatio);
+        const cropW = Math.floor((vw * baseW) / zoomFactor);
+        const cropH = Math.floor((vh * baseH) / zoomFactor);
         const cropX = Math.floor((vw - cropW) / 2);
         const cropY = Math.floor((vh - cropH) / 2);
 
-        cropCanvas.width = cropW;
-        cropCanvas.height = cropH;
-        ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+        return { cropX, cropY, cropW, cropH };
+      }
 
-        const imgData = ctx.getImageData(0, 0, cropW, cropH);
+      function captureRawToCanvas(targetCanvas) {
+        const rect = getCropRect();
+        if (!rect) return false;
+        const targetW = 640;
+        const targetH = Math.max(80, Math.floor((rect.cropH / rect.cropW) * targetW));
+        targetCanvas.width = targetW;
+        targetCanvas.height = targetH;
+        const tCtx = targetCanvas.getContext('2d');
+        tCtx.drawImage(video, rect.cropX, rect.cropY, rect.cropW, rect.cropH, 0, 0, targetW, targetH);
+        return true;
+      }
+
+      function binarizeCanvasForOcr(sourceCanvas, thumbCanvas) {
+        const w = sourceCanvas.width;
+        const h = sourceCanvas.height;
+        ocrCanvas.width = w;
+        ocrCanvas.height = h;
+        ocrCtx.drawImage(sourceCanvas, 0, 0);
+
+        const imgData = ocrCtx.getImageData(0, 0, w, h);
         const data = imgData.data;
-        const contrast = 48;
-        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
 
         for (let i = 0; i < data.length; i += 4) {
           const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-          const adj = Math.min(255, Math.max(0, factor * (gray - 128) + 128));
-          data[i] = data[i + 1] = data[i + 2] = adj;
+          let bw = gray < binThreshold ? 0 : 255;
+          if (isInverted) bw = 255 - bw;
+          data[i] = data[i + 1] = data[i + 2] = bw;
         }
-        ctx.putImageData(imgData, 0, 0);
-        return true;
+        ocrCtx.putImageData(imgData, 0, 0);
+
+        // 썸네일에도 이진화 결과 반영하여 눈으로 선명도 확인 가능하게 표시
+        if (thumbCanvas) {
+          thumbCanvas.width = w;
+          thumbCanvas.height = h;
+          thumbCanvas.getContext('2d').drawImage(ocrCanvas, 0, 0);
+        }
+      }
+
+      /* =========================================
+         7. 스마트 번호판 보정 & 알림
+      ========================================= */
+      function resolvePlateFromOcr(cleanedText) {
+        const diploMatch = cleanedText.match(/(외교|영사|준외|준영|국기|협정|대표)(\d{3})(\d{3})/);
+        if (diploMatch) {
+          const plate = `${diploMatch[1]}${diploMatch[2]}-${diploMatch[3]}`;
+          return {
+            plate,
+            isRegistered: registeredMap.has(plate),
+            memo: registeredMap.get(plate) || '미등록 외교/특수 차량'
+          };
+        }
+
+        const stdMatch = cleanedText.match(/(\d{2,3})([가-힣])(\d{4})/);
+        if (!stdMatch) return null;
+
+        const frontDigits = stdMatch[1];
+        const hangulChar = stdMatch[2];
+        const backDigits = stdMatch[3];
+        const rawPlate = `${frontDigits}${hangulChar}${backDigits}`;
+
+        if (registeredMap.has(rawPlate)) {
+          return { plate: rawPlate, isRegistered: true, memo: registeredMap.get(rawPlate) };
+        }
+
+        if (frontDigits.length === 3) {
+          const twoDigitPlate = `${frontDigits.slice(1)}${hangulChar}${backDigits}`;
+          if (registeredMap.has(twoDigitPlate)) {
+            return { plate: twoDigitPlate, isRegistered: true, memo: registeredMap.get(twoDigitPlate) };
+          }
+        }
+
+        const validFront = frontDigits.length === 3 ? frontDigits.slice(1) : frontDigits;
+        for (const [regPlate, regMemo] of registeredMap.entries()) {
+          const regMatch = regPlate.match(/^(\d{2,3})([가-힣])(\d{4})$/);
+          if (regMatch) {
+            if ((regMatch[1] === frontDigits || regMatch[1] === validFront) && regMatch[3] === backDigits) {
+              return { plate: regPlate, isRegistered: true, memo: regMemo };
+            }
+          }
+        }
+
+        const displayPlate = (frontDigits.length === 3 && (frontDigits.startsWith('1') || frontDigits.startsWith('0')))
+          ? `${frontDigits.slice(1)}${hangulChar}${backDigits}`
+          : rawPlate;
+
+        return { plate: displayPlate, isRegistered: false, memo: '리스트에 없는 미등록 차량' };
       }
 
       function triggerAlert(isRegistered) {
@@ -769,85 +971,159 @@
         }
       }
 
-      async function scanPlate() {
-        if (isScanning) return;
-        if (!ocrReady || !worker) {
-          alert('OCR 엔진이 아직 로딩 중입니다. 상단이 [스캔 준비 완료]로 바뀌면 다시 눌러주세요.');
-          return;
-        }
-        if (!captureAndPreprocess()) {
-          alert('카메라 영상이 아직 준비되지 않았습니다. 상단의 [📷 카메라 켜기] 버튼을 먼저 눌러주세요.');
-          return;
-        }
+      function applyRecognizedResult(resolved) {
+        const { plate, isRegistered, memo } = resolved;
+        plateDisplay.textContent = plate;
+        resultCard.className = 'result-card ' + (isRegistered ? 'registered' : 'unregistered');
+        resultStatus.textContent = isRegistered ? '✅ 등록된 차량입니다' : '🚨 미등록 차량입니다';
+        resultMemo.textContent = memo;
 
-        isScanning = true;
-        scanBtn.textContent = '⏳ 인식 중...';
+        const now = Date.now();
+        if (plate !== lastAlertedPlate || now - lastAlertTime > 3000) {
+          triggerAlert(isRegistered);
+          addLog(plate, isRegistered, memo);
+          showResultPopup(plate, isRegistered, memo);
+          lastAlertedPlate = plate;
+          lastAlertTime = now;
+        }
+      }
+
+      /* =========================================
+         8. 4연사 고속 캡처 & 중앙 우선 순차 판독
+      ========================================= */
+      const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+      async function executeBurstCaptureAndScan() {
+        if (isBusy || !ocrReady || !worker) return;
+        if (!getCropRect()) return;
+
+        isBusy = true;
+        guideFrame.classList.add('triggered');
+        resultStatus.textContent = '⚡ 차량 감지! 0.18초 4연사 촬영중...';
+
+        thumbCanvases.forEach(c => { c.className = ''; });
 
         try {
-          const { data: { text } } = await worker.recognize(cropCanvas);
-          const cleaned = text.replace(/[^0-9가-힣]/g, '');
-          rawOcr.textContent = `인식 원문: ${cleaned || '(인식된 문자 없음)'}`;
-
-          let plate = null;
-          const stdMatch = cleaned.match(/\d{2,3}[가-힣]\d{4}/);
-          const diploMatch = cleaned.match(/(외교|영사|준외|준영|국기|협정|대표)(\d{3})(\d{3})/);
-
-          if (stdMatch) {
-            plate = stdMatch[0];
-          } else if (diploMatch) {
-            plate = `${diploMatch[1]}${diploMatch[2]}-${diploMatch[3]}`;
+          // 1단계: 60ms 간격으로 4프레임 초고속 연사 확보 (총 180ms 소요)
+          for (let i = 0; i < 4; i++) {
+            captureRawToCanvas(burstCanvases[i]);
+            thumbCanvases[i].width = burstCanvases[i].width;
+            thumbCanvases[i].height = burstCanvases[i].height;
+            thumbCanvases[i].getContext('2d').drawImage(burstCanvases[i], 0, 0);
+            if (i < 3) await sleep(60);
           }
 
-          if (plate) {
-            const isRegistered = registeredMap.has(plate);
-            const memo = isRegistered ? registeredMap.get(plate) : '리스트에 없는 미등록 차량';
+          guideFrame.classList.remove('triggered');
+          resultStatus.textContent = '⏳ 4연사 스냅샷 번호판 판독중...';
 
-            plateDisplay.textContent = plate;
-            resultCard.className = 'result-card ' + (isRegistered ? 'registered' : 'unregistered');
-            resultStatus.textContent = isRegistered ? '✅ 등록된 차량입니다' : '🚨 미등록 차량입니다';
-            resultMemo.textContent = memo;
+          // 2단계: 차량이 중앙에 왔을 확률이 높은 2번(60ms) -> 3번(120ms) -> 1번 -> 4번 순으로 판독
+          const checkOrder = [1, 2, 0, 3];
+          let found = false;
+          let lastRawText = '';
 
-            const now = Date.now();
-            if (plate !== lastAlertedPlate || now - lastAlertTime > 4000) {
-              triggerAlert(isRegistered);
-              addLog(plate, isRegistered, memo);
-              showResultPopup(plate, isRegistered, memo);
-              lastAlertedPlate = plate;
-              lastAlertTime = now;
+          for (const idx of checkOrder) {
+            thumbCanvases[idx].classList.add('active');
+            binarizeCanvasForOcr(burstCanvases[idx], thumbCanvases[idx]);
+
+            const { data: { text } } = await worker.recognize(ocrCanvas);
+            const cleaned = text.replace(/[^0-9가-힣]/g, '');
+            if (cleaned) lastRawText = cleaned;
+            rawOcr.textContent = `[${idx + 1}컷] 인식 원문: ${cleaned || '(없음)'}`;
+
+            const resolved = resolvePlateFromOcr(cleaned);
+            thumbCanvases[idx].classList.remove('active');
+
+            if (resolved) {
+              thumbCanvases[idx].classList.add('hit');
+              applyRecognizedResult(resolved);
+              found = true;
+              break; // 번호판 인식 성공 시 나머지 컷 생략하고 즉시 복귀
             }
+          }
+
+          if (!found) {
+            resultStatus.textContent = motionTriggerActive ? '👀 주행 차량 감시 중 (미인식 통과)' : '스캔 완료 (번호판 미검출)';
+            rawOcr.textContent = `4연사 원문: ${lastRawText || '(글자 미검출 - 줌/선명도 조절)'}`;
           }
         } catch (err) {
           console.error(err);
         } finally {
-          isScanning = false;
-          scanBtn.textContent = '🔍 지금 즉시 스캔';
+          guideFrame.classList.remove('triggered');
+          prevGrayFrame = null;
+          motionCooldownUntil = Date.now() + 900; // 통과 직후 꼬리 재감지 방지 0.9초 쿨타임
+          isBusy = false;
         }
       }
 
-      scanBtn.addEventListener('click', scanPlate);
+      /* =========================================
+         9. 초경량 실시간 움직임 감시 루프 (RequestAnimationFrame)
+      ========================================= */
+      function monitorMotionLoop() {
+        const rect = getCropRect();
+        if (rect && !isBusy) {
+          motionCtx.drawImage(video, rect.cropX, rect.cropY, rect.cropW, rect.cropH, 0, 0, 160, 54);
+          const frameData = motionCtx.getImageData(0, 0, 160, 54).data;
+          const pixelCount = 160 * 54;
+          const currGray = new Uint8Array(pixelCount);
 
-      autoBtn.addEventListener('click', () => {
-        if (autoScanTimer) {
-          clearInterval(autoScanTimer);
-          autoScanTimer = null;
-          autoBtn.textContent = '🔄 연속스캔: OFF';
-          autoBtn.classList.remove('auto-on');
-        } else {
-          scanPlate();
-          autoScanTimer = setInterval(scanPlate, 1500);
-          autoBtn.textContent = '🔄 연속스캔: ON';
-          autoBtn.classList.add('auto-on');
+          let changed = 0;
+          for (let i = 0, p = 0; i < frameData.length; i += 4, p++) {
+            const g = (frameData[i] * 77 + frameData[i + 1] * 150 + frameData[i + 2] * 29) >> 8;
+            currGray[p] = g;
+            if (prevGrayFrame && Math.abs(g - prevGrayFrame[p]) > 28) {
+              changed++;
+            }
+          }
+
+          if (prevGrayFrame) {
+            const score = Math.min(100, Math.round((changed / pixelCount) * 100));
+            motionMeter.style.width = Math.min(100, score * 2) + '%';
+            motionMeter.style.background = score >= motionThreshold ? '#facc15' : '#22c55e';
+
+            if (motionTriggerActive && ocrReady && Date.now() > motionCooldownUntil && score >= motionThreshold) {
+              executeBurstCaptureAndScan();
+            }
+          }
+          prevGrayFrame = currGray;
         }
+        requestAnimationFrame(monitorMotionLoop);
+      }
+
+      motionAutoBtn.addEventListener('click', () => {
+        if (!ocrReady) {
+          alert('OCR 엔진이 아직 로딩 중입니다. 상단이 [주행감지 준비됨]으로 바뀌면 눌러주세요.');
+          return;
+        }
+        motionTriggerActive = !motionTriggerActive;
+        prevGrayFrame = null;
+        if (motionTriggerActive) {
+          motionAutoBtn.textContent = '⚡ 주행감지 연사: ON';
+          motionAutoBtn.classList.add('auto-on');
+          resultStatus.textContent = '👀 주행 차량 진입 감시 중...';
+        } else {
+          motionAutoBtn.textContent = '⚡ 주행감지 연사: OFF';
+          motionAutoBtn.classList.remove('auto-on');
+          resultStatus.textContent = '감시 중지됨';
+        }
+      });
+
+      scanBtn.addEventListener('click', () => {
+        if (!ocrReady) {
+          alert('OCR 엔진 로딩 중입니다. 잠시만 기다려주세요.');
+          return;
+        }
+        executeBurstCaptureAndScan();
       });
 
       clearLogBtn.addEventListener('click', () => {
         logList.innerHTML = '<li style="color:var(--muted);">아직 스캔된 기록이 없습니다.</li>';
       });
 
-      // 순차 초기화 실행
+      // 앱 시작
       loadSavedList();
       startCamera();
       initOCR();
+      requestAnimationFrame(monitorMotionLoop);
     });
   </script>
 </body>
