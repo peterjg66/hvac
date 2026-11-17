@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>차량 번호판 인식 및 등록 감별기 (광역/가로모드)</title>
+  <title>차량 번호판 인식 및 등록 감별기 (일반/외교 통합)</title>
   <!-- Tesseract.js v5 CDN -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
@@ -281,7 +281,7 @@
         <video id="video" autoplay playsinline muted></video>
         <div class="guide-overlay">
           <div class="guide-frame" id="guideFrame"></div>
-          <div class="guide-text" id="guideText">1차선 광역 인식 영역 (가로 모드 권장)</div>
+          <div class="guide-text" id="guideText">1차선 광역 인식 영역 (일반 · 외교번호판 지원)</div>
         </div>
       </div>
     </div>
@@ -307,9 +307,9 @@
       <div class="section">
         <div class="section-header">
           <h2>📋 등록 차량 (<span id="listCount">0</span>대)</h2>
-          <span style="font-size:0.74rem; color:var(--muted);">형식: 차량번호 [메모]</span>
+          <span style="font-size:0.74rem; color:var(--muted);">일반 · 외교000-000 지원</span>
         </div>
-        <textarea id="plateListInput" placeholder="한 줄에 하나씩 입력하세요.&#10;예시:&#10;12가3456 홍길동&#10;123나4567 방문차량"></textarea>
+        <textarea id="plateListInput" placeholder="한 줄에 하나씩 입력하세요.&#10;예시:&#10;12가3456 홍길동&#10;123나4567 방문차량&#10;외교001-001 대사관차량"></textarea>
         <div class="list-actions">
           <button id="saveListBtn">💾 리스트 저장</button>
           <label class="file-label" for="csvFileInput">📂 CSV/TXT 불러오기</label>
@@ -364,7 +364,7 @@
     let worker = null;
     let isScanning = false;
     let autoScanTimer = null;
-    let isWideMode = true; // 기본값: 1차선 광역 모드
+    let isWideMode = true;
     let registeredMap = new Map();
     let lastAlertedPlate = '';
     let lastAlertTime = 0;
@@ -398,7 +398,6 @@
       }
     }
 
-    // 다른 앱을 잠깐 보다가 다시 브라우저로 돌아왔을 때 화면켜기 유지 자동 복구
     document.addEventListener('visibilitychange', async () => {
       if (keepAwakeEnabled && document.visibilityState === 'visible') {
         try {
@@ -435,7 +434,7 @@
       isWideMode = !isWideMode;
       if (isWideMode) {
         guideFrame.classList.remove('narrow');
-        guideText.textContent = '1차선 광역 인식 영역 (가로 모드 권장)';
+        guideText.textContent = '1차선 광역 인식 영역 (일반 · 외교번호판 지원)';
         rangeBtn.textContent = '📐 인식영역: 광역 (1차선 폭)';
       } else {
         guideFrame.classList.add('narrow');
@@ -445,227 +444,20 @@
     });
 
     // 1. 초기 샘플 데이터 및 저장된 리스트 불러오기
-    const DEFAULT_LIST = `12가3456 샘플차량1\n123나4567 샘플차량2\n45다6789 샘플차량3`;
+    const DEFAULT_LIST = `12가3456 샘플차량1\n123나4567 샘플차량2\n외교001-001 외교차량샘플`;
     function loadSavedList() {
       const saved = localStorage.getItem('peter_plate_list');
       plateListInput.value = saved !== null ? saved : DEFAULT_LIST;
       parsePlateList();
     }
 
+    // 일반 번호판 + 외교/영사/특수 번호판(외교000-000) 파싱
     function parsePlateList() {
       registeredMap.clear();
       const lines = plateListInput.value.split(/\r?\n/);
-      const plateRegex = /(\d{2,3}[가-힣]\d{4})/;
+      const stdRegex = /(\d{2,3}[가-힣]\d{4})/;
+      const diploRegex = /(외교|영사|준외|준영|국기|협정|대표)\s*(\d{3})\s*-?\s*(\d{3})/;
 
       lines.forEach(line => {
         const cleanedLine = line.replace(/\s+/g, ' ').trim();
         if (!cleanedLine) return;
-        const compactForMatch = cleanedLine.replace(/(\d{2,3}\s*[가-힣])\s*(\d{4})/, '$1$2');
-        const match = compactForMatch.match(plateRegex);
-        if (match) {
-          const plate = match[1];
-          const memo = compactForMatch.replace(plate, '').replace(/^[,;\s-]+/, '').trim();
-          registeredMap.set(plate, memo || '등록 차량');
-        }
-      });
-      listCount.textContent = registeredMap.size;
-    }
-
-    saveListBtn.addEventListener('click', () => {
-      localStorage.setItem('peter_plate_list', plateListInput.value);
-      parsePlateList();
-      alert(`총 ${registeredMap.size}대의 차량 번호가 저장되었습니다.`);
-    });
-
-    csvFileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        const content = evt.target.result;
-        const formatted = content
-          .split(/\r?\n/)
-          .map(row => row.split(',').map(cell => cell.trim()).filter(Boolean).join(' '))
-          .filter(Boolean)
-          .join('\n');
-        plateListInput.value = formatted;
-        localStorage.setItem('peter_plate_list', formatted);
-        parsePlateList();
-        alert(`파일에서 ${registeredMap.size}대의 차량 번호를 불러왔습니다.`);
-      };
-      reader.readAsText(file, 'UTF-8');
-    });
-
-    // 2. 후면 고해상도(Full HD 우선) 카메라 시작
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          },
-          audio: false
-        });
-        video.srcObject = stream;
-      } catch (err) {
-        alert('카메라를 실행할 수 없습니다. HTTPS 환경인지 및 카메라 권한을 확인해주세요.\n오류: ' + err.message);
-      }
-    }
-
-    // 3. Tesseract.js 한국어 OCR 초기화 (넓은 영역 텍스트 탐색 모드 PSM 11 적용)
-    async function initOCR() {
-      try {
-        worker = await Tesseract.createWorker('kor');
-        await worker.setParameters({
-          tessedit_pageseg_mode: '11'
-        });
-        engineStatus.textContent = '스캔 준비 완료';
-        engineStatus.classList.add('ready');
-        scanBtn.disabled = false;
-        autoBtn.disabled = false;
-      } catch (err) {
-        engineStatus.textContent = 'OCR 로딩 실패';
-        console.error(err);
-      }
-    }
-
-    // 4. 가이드 박스 영역 크롭 + 흑백/대비 전처리
-    function captureAndPreprocess() {
-      const vw = video.videoWidth;
-      const vh = video.videoHeight;
-      if (!vw || !vh) return false;
-
-      // 광역 모드(92% x 44%) vs 집중 모드(72% x 26%)
-      const wRatio = isWideMode ? 0.92 : 0.72;
-      const hRatio = isWideMode ? 0.44 : 0.26;
-
-      const cropW = Math.floor(vw * wRatio);
-      const cropH = Math.floor(vh * hRatio);
-      const cropX = Math.floor((vw - cropW) / 2);
-      const cropY = Math.floor((vh - cropH) / 2);
-
-      cropCanvas.width = cropW;
-      cropCanvas.height = cropH;
-      ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-
-      const imgData = ctx.getImageData(0, 0, cropW, cropH);
-      const data = imgData.data;
-      const contrast = 48;
-      const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-
-      for (let i = 0; i < data.length; i += 4) {
-        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-        const adj = Math.min(255, Math.max(0, factor * (gray - 128) + 128));
-        data[i] = data[i + 1] = data[i + 2] = adj;
-      }
-      ctx.putImageData(imgData, 0, 0);
-      return true;
-    }
-
-    // 5. 미등록 차량 경고음 및 진동
-    function triggerAlert(isRegistered) {
-      if (navigator.vibrate) {
-        navigator.vibrate(isRegistered ? [100] : [250, 100, 250]);
-      }
-      if (!isRegistered) {
-        try {
-          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(520, audioCtx.currentTime);
-          osc.frequency.setValueAtTime(380, audioCtx.currentTime + 0.15);
-          gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          osc.start();
-          osc.stop(audioCtx.currentTime + 0.35);
-        } catch (e) {}
-      }
-    }
-
-    function addLog(plate, isRegistered, memo) {
-      if (logList.children.length === 1 && logList.children[0].textContent.includes('아직')) {
-        logList.innerHTML = '';
-      }
-      const now = new Date().toTimeString().slice(0, 8);
-      const li = document.createElement('li');
-      li.innerHTML = `
-        <span><strong>${plate}</strong> <small style="color:var(--muted);">(${memo})</small></span>
-        <span class="${isRegistered ? 'tag-ok' : 'tag-no'}">${isRegistered ? '등록' : '미등록'} · ${now}</span>
-      `;
-      logList.prepend(li);
-      if (logList.children.length > 15) {
-        logList.removeChild(logList.lastChild);
-      }
-    }
-
-    // 6. 번호판 인식 및 감별 실행
-    async function scanPlate() {
-      if (isScanning || !worker) return;
-      if (!captureAndPreprocess()) return;
-
-      isScanning = true;
-      scanBtn.textContent = '⏳ 인식 중...';
-
-      try {
-        const { data: { text } } = await worker.recognize(cropCanvas);
-        const cleaned = text.replace(/[^0-9가-힣]/g, '');
-        rawOcr.textContent = `인식 원문: ${cleaned || '(인식된 문자 없음)'}`;
-
-        const match = cleaned.match(/\d{2,3}[가-힣]\d{4}/);
-
-        if (match) {
-          const plate = match[0];
-          const isRegistered = registeredMap.has(plate);
-          const memo = isRegistered ? registeredMap.get(plate) : '리스트에 없는 차량';
-
-          plateDisplay.textContent = plate;
-          resultCard.className = 'result-card ' + (isRegistered ? 'registered' : 'unregistered');
-          resultStatus.textContent = isRegistered ? '✅ 등록된 차량입니다' : '🚨 미등록 차량입니다';
-          resultMemo.textContent = memo;
-
-          const now = Date.now();
-          if (plate !== lastAlertedPlate || now - lastAlertTime > 4000) {
-            triggerAlert(isRegistered);
-            addLog(plate, isRegistered, memo);
-            lastAlertedPlate = plate;
-            lastAlertTime = now;
-          }
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        isScanning = false;
-        scanBtn.textContent = '🔍 지금 즉시 스캔';
-      }
-    }
-
-    scanBtn.addEventListener('click', scanPlate);
-
-    autoBtn.addEventListener('click', () => {
-      if (autoScanTimer) {
-        clearInterval(autoScanTimer);
-        autoScanTimer = null;
-        autoBtn.textContent = '🔄 연속스캔: OFF';
-        autoBtn.classList.remove('auto-on');
-      } else {
-        scanPlate();
-        autoScanTimer = setInterval(scanPlate, 1500);
-        autoBtn.textContent = '🔄 연속스캔: ON';
-        autoBtn.classList.add('auto-on');
-      }
-    });
-
-    clearLogBtn.addEventListener('click', () => {
-      logList.innerHTML = '<li style="color:var(--muted);">아직 스캔된 기록이 없습니다.</li>';
-    });
-
-    // 앱 시작
-    loadSavedList();
-    startCamera();
-    initOCR();
-  </script>
-</body>
-</html>
