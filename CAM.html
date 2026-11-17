@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>차량 번호판 인식 및 등록 감별기</title>
+  <!-- Tesseract.js v5 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --primary: #3b82f6;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 14px;
+      max-width: 540px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    header h1 { font-size: 1.15rem; font-weight: 700; }
+    .badge {
+      font-size: 0.78rem;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #334155;
+      color: #e2e8f0;
+    }
+    .badge.ready { background: #15803d; color: #fff; }
+
+    /* 카메라 뷰포트 */
+    .camera-box {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      margin-bottom: 12px;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    /* 중앙 번호판 맞춤 가이드 박스 */
+    .guide-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .guide-frame {
+      width: 76%;
+      height: 28%;
+      border: 3px solid #38bdf8;
+      border-radius: 8px;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+    }
+    .guide-text {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: #e0f2fe;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 3px 10px;
+      border-radius: 12px;
+    }
+
+    /* 판별 결과 배너 */
+    .result-card {
+      padding: 16px;
+      border-radius: 12px;
+      text-align: center;
+      background: var(--card);
+      border: 2px solid var(--border);
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+    }
+    .result-card.registered {
+      background: rgba(22, 163, 74, 0.22);
+      border-color: var(--success);
+    }
+    .result-card.unregistered {
+      background: rgba(220, 38, 38, 0.25);
+      border-color: var(--danger);
+    }
+    .plate-number {
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      margin: 4px 0;
+    }
+    .result-status { font-size: 1.05rem; font-weight: 700; }
+    .result-memo { font-size: 0.9rem; color: #cbd5e1; margin-top: 4px; }
+    .raw-ocr { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+
+    /* 컨트롤 버튼 */
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    button, .file-label {
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      color: #fff;
+      background: var(--primary);
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #334155; }
+    button.auto-on { background: #0d9488; }
+
+    /* 섹션 카드 */
+    .section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .section-header h2 { font-size: 0.98rem; }
+    textarea {
+      width: 100%;
+      height: 120px;
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.9rem;
+      line-height: 1.45;
+      resize: vertical;
+    }
+    .list-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .list-actions button, .file-label {
+      flex: 1;
+      padding: 9px;
+      font-size: 0.85rem;
+    }
+    .file-label { background: #475569; display: inline-block; }
+    input[type="file"] { display: none; }
+
+    /* 최근 스캔 로그 */
+    .log-list {
+      list-style: none;
+      max-height: 140px;
+      overflow-y: auto;
+      font-size: 0.85rem;
+    }
+    .log-list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .log-list li:last-child { border-bottom: none; }
+    .tag-ok { color: #4ade80; font-weight: 700; }
+    .tag-no { color: #f87171; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🚘 차량 번호판 감별기</h1>
+    <span id="engineStatus" class="badge">OCR 엔진 로딩중...</span>
+  </header>
+
+  <!-- 카메라 영역 -->
+  <div class="camera-box">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="guide-overlay">
+      <div class="guide-frame" id="guideFrame"></div>
+      <div class="guide-text">파란 박스 안에 번호판을 맞춰주세요</div>
+    </div>
+  </div>
+
+  <!-- 판별 결과 -->
+  <div id="resultCard" class="result-card">
+    <div id="resultStatus" class="result-status">스캔 대기 중</div>
+    <div id="plateDisplay" class="plate-number">--- ----</div>
+    <div id="resultMemo" class="result-memo">카메라를 켜고 번호판을 비춰주세요</div>
+    <div id="rawOcr" class="raw-ocr">인식 원문: -</div>
+  </div>
+
+  <!-- 스캔 조작 버튼 -->
+  <div class="controls">
+    <button id="scanBtn" disabled>🔍 지금 즉시 스캔</button>
+    <button id="autoBtn" class="secondary" disabled>🔄 자동 연속스캔: OFF</button>
+  </div>
+
+  <!-- 등록 차량 리스트 관리 -->
+  <div class="section">
+    <div class="section-header">
+      <h2>📋 등록 차량 리스트 (<span id="listCount">0</span>대)</h2>
+      <span style="font-size:0.75rem; color:var(--muted);">형식: 차량번호 [메모]</span>
+    </div>
+    <textarea id="plateListInput" placeholder="한 줄에 하나씩 입력하세요.&#10;예시:&#10;12가3456 홍길동&#10;123나4567 방문차량&#10;45다6789"></textarea>
+    <div class="list-actions">
+      <button id="saveListBtn">💾 리스트 저장</button>
+      <label class="file-label" for="csvFileInput">📂 CSV/TXT 불러오기</label>
+      <input type="file" id="csvFileInput" accept=".csv,.txt" />
+    </div>
+  </div>
+
+  <!-- 최근 감별 기록 -->
+  <div class="section">
+    <div class="section-header">
+      <h2>🕒 최근 감별 기록</h2>
+      <button id="clearLogBtn" class="secondary" style="padding:4px 8px; font-size:0.75rem;">지우기</button>
+    </div>
+    <ul id="logList" class="log-list">
+      <li style="color:var(--muted);">아직 스캔된 기록이 없습니다.</li>
+    </ul>
+  </div>
+
+  <!-- 이미지 크롭 및 전처리용 숨김 캔버스 -->
+  <canvas id="cropCanvas" style="display:none;"></canvas>
+
+  <script>
+    const video = document.getElementById('video');
+    const cropCanvas = document.getElementById('cropCanvas');
+    const ctx = cropCanvas.getContext('2d', { willReadFrequently: true });
+
+    const engineStatus = document.getElementById('engineStatus');
+    const scanBtn = document.getElementById('scanBtn');
+    const autoBtn = document.getElementById('autoBtn');
+    const resultCard = document.getElementById('resultCard');
+    const resultStatus = document.getElementById('resultStatus');
+    const plateDisplay = document.getElementById('plateDisplay');
+    const resultMemo = document.getElementById('resultMemo');
+    const rawOcr = document.getElementById('rawOcr');
+
+    const plateListInput = document.getElementById('plateListInput');
+    const saveListBtn = document.getElementById('saveListBtn');
+    const csvFileInput = document.getElementById('csvFileInput');
+    const listCount = document.getElementById('listCount');
+    const logList = document.getElementById('logList');
+    const clearLogBtn = document.getElementById('clearLogBtn');
+
+    let worker = null;
+    let isScanning = false;
+    let autoScanTimer = null;
+    let registeredMap = new Map(); // key: '12가3456', value: '메모'
+    let lastAlertedPlate = '';
+    let lastAlertTime = 0;
+
+    // 1. 초기 샘플 데이터 및 저장된 리스트 불러오기
+    const DEFAULT_LIST = `12가3456 샘플차량1\n123나4567 샘플차량2\n45다6789 샘플차량3`;
+    function loadSavedList() {
+      const saved = localStorage.getItem('peter_plate_list');
+      plateListInput.value = saved !== null ? saved : DEFAULT_LIST;
+      parsePlateList();
+    }
+
+    // 텍스트 영역에서 차량번호와 메모 파싱
+    function parsePlateList() {
+      registeredMap.clear();
+      const lines = plateListInput.value.split(/\r?\n/);
+      const plateRegex = /(\d{2,3}[가-힣]\d{4})/;
+
+      lines.forEach(line => {
+        const cleanedLine = line.replace(/\s+/g, ' ').trim();
+        if (!cleanedLine) return;
+        // 번호판 내부 공백 제거 후 매칭 (예: "12가 3456 홍길동" -> "12가3456")
+        const compactForMatch = cleanedLine.replace(/(\d{2,3}\s*[가-힣])\s*(\d{4})/, '$1$2');
+        const match = compactForMatch.match(plateRegex);
+        if (match) {
+          const plate = match[1];
+          const memo = compactForMatch.replace(plate, '').replace(/^[,;\s-]+/, '').trim();
+          registeredMap.set(plate, memo || '등록 차량');
+        }
+      });
+      listCount.textContent = registeredMap.size;
+    }
+
+    saveListBtn.addEventListener('click', () => {
+      localStorage.setItem('peter_plate_list', plateListInput.value);
+      parsePlateList();
+      alert(`총 ${registeredMap.size}대의 차량 번호가 저장되었습니다.`);
+    });
+
+    // CSV / TXT 파일 업로드 처리
+    csvFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const content = evt.target.result;
+        // 쉼표(CSV)를 공백으로 치환해 줄 단위로 정리
+        const formatted = content
+          .split(/\r?\n/)
+          .map(row => row.split(',').map(cell => cell.trim()).filter(Boolean).join(' '))
+          .filter(Boolean)
+          .join('\n');
+        plateListInput.value = formatted;
+        localStorage.setItem('peter_plate_list', formatted);
+        parsePlateList();
+        alert(`파일에서 ${registeredMap.size}대의 차량 번호를 불러왔습니다.`);
+      };
+      reader.readAsText(file, 'UTF-8');
+    });
+
+    // 2. 후면 카메라 시작
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+        video.srcObject = stream;
+      } catch (err) {
+        alert('카메라를 실행할 수 없습니다. HTTPS 환경인지 및 카메라 권한을 확인해주세요.\n오류: ' + err.message);
+      }
+    }
+
+    // 3. Tesseract.js 한국어 OCR 엔진 초기화
+    async function initOCR() {
+      try {
+        worker = await Tesseract.createWorker('kor');
+        engineStatus.textContent = '스캔 준비 완료';
+        engineStatus.classList.add('ready');
+        scanBtn.disabled = false;
+        autoBtn.disabled = false;
+      } catch (err) {
+        engineStatus.textContent = 'OCR 로딩 실패';
+        console.error(err);
+      }
+    }
+
+    // 4. 가이드 박스 영역 크롭 + 흑백/대비 전처리
+    function captureAndPreprocess() {
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh) return false;
+
+      // 가이드 프레임 비율에 맞춘 중앙 크롭 (가로 76%, 세로 28%)
+      const cropW = Math.floor(vw * 0.76);
+      const cropH = Math.floor(vh * 0.28);
+      const cropX = Math.floor((vw - cropW) / 2);
+      const cropY = Math.floor((vh - cropH) / 2);
+
+      cropCanvas.width = cropW;
+      cropCanvas.height = cropH;
+      ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+      // 흑백 변환 및 대비(Contrast) 강화로 번호판 글자 선명도 향상
+      const imgData = ctx.getImageData(0, 0, cropW, cropH);
+      const data = imgData.data;
+      const contrast = 45;
+      const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        const adj = Math.min(255, Math.max(0, factor * (gray - 128) + 128));
+        data[i] = data[i + 1] = data[i + 2] = adj;
+      }
+      ctx.putImageData(imgData, 0, 0);
+      return true;
+    }
+
+    // 5. 미등록 차량 경고음 및 진동 (Web Audio API)
+    function triggerAlert(isRegistered) {
+      if (navigator.vibrate) {
+        navigator.vibrate(isRegistered ? [100] : [250, 100, 250]);
+      }
+      if (!isRegistered) {
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(520, audioCtx.currentTime);
+          osc.frequency.setValueAtTime(380, audioCtx.currentTime + 0.15);
+          gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.35);
+        } catch (e) {}
+      }
+    }
+
+    // 최근 감별 로그 추가
+    function addLog(plate, isRegistered, memo) {
+      if (logList.children.length === 1 && logList.children[0].textContent.includes('아직')) {
+        logList.innerHTML = '';
+      }
+      const now = new Date().toTimeString().slice(0, 8);
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <span><strong>${plate}</strong> <small style="color:var(--muted);">(${memo})</small></span>
+        <span class="${isRegistered ? 'tag-ok' : 'tag-no'}">${isRegistered ? '등록' : '미등록'} · ${now}</span>
+      `;
+      logList.prepend(li);
+      if (logList.children.length > 15) {
+        logList.removeChild(logList.lastChild);
+      }
+    }
+
+    // 6. 번호판 인식 및 감별 실행
+    async function scanPlate() {
+      if (isScanning || !worker) return;
+      if (!captureAndPreprocess()) return;
+
+      isScanning = true;
+      scanBtn.textContent = '⏳ 인식 중...';
+
+      try {
+        const { data: { text } } = await worker.recognize(cropCanvas);
+        const cleaned = text.replace(/[^0-9가-힣]/g, '');
+        rawOcr.textContent = `인식 원문: ${cleaned || '(인식된 문자 없음)'}`;
+
+        // 한국 자동차 번호판 패턴 (예: 12가3456, 123나4567)
+        const match = cleaned.match(/\d{2,3}[가-힣]\d{4}/);
+
+        if (match) {
+          const plate = match[0];
+          const isRegistered = registeredMap.has(plate);
+          const memo = isRegistered ? registeredMap.get(plate) : '리스트에 없는 차량';
+
+          plateDisplay.textContent = plate;
+          resultCard.className = 'result-card ' + (isRegistered ? 'registered' : 'unregistered');
+          resultStatus.textContent = isRegistered ? '✅ 등록된 차량입니다' : '🚨 미등록 차량입니다';
+          resultMemo.textContent = memo;
+
+          // 동일 차량 연속 중복 알림 방지 (4초 쿨타임)
+          const now = Date.now();
+          if (plate !== lastAlertedPlate || now - lastAlertTime > 4000) {
+            triggerAlert(isRegistered);
+            addLog(plate, isRegistered, memo);
+            lastAlertedPlate = plate;
+            lastAlertTime = now;
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        isScanning = false;
+        scanBtn.textContent = '🔍 지금 즉시 스캔';
+      }
+    }
+
+    scanBtn.addEventListener('click', scanPlate);
+
+    // 자동 연속 스캔 토글 (1.5초 간격)
+    autoBtn.addEventListener('click', () => {
+      if (autoScanTimer) {
+        clearInterval(autoScanTimer);
+        autoScanTimer = null;
+        autoBtn.textContent = '🔄 자동 연속스캔: OFF';
+        autoBtn.classList.remove('auto-on');
+      } else {
+        scanPlate();
+        autoScanTimer = setInterval(scanPlate, 1500);
+        autoBtn.textContent = '🔄 자동 연속스캔: ON';
+        autoBtn.classList.add('auto-on');
+      }
+    });
+
+    clearLogBtn.addEventListener('click', () => {
+      logList.innerHTML = '<li style="color:var(--muted);">아직 스캔된 기록이 없습니다.</li>';
+    });
+
+    // 앱 시작
+    loadSavedList();
+    startCamera();
+    initOCR();
+  </script>
+</body>
+</html>
