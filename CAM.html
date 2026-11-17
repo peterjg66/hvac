@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>차량 번호판 감별기 (전체표시 / 등록차량 팝업)</title>
+  <title>차량 번호판 감별기 (담당자 문자발송 통합판)</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     :root {
@@ -22,7 +22,7 @@
       background: var(--bg);
       color: var(--text);
       padding: 10px;
-      max-width: 780px;
+      max-width: 820px;
       margin: 0 auto;
     }
 
@@ -189,12 +189,12 @@
       border-color: #475569;
     }
     .plate-number {
-      font-size: 1.65rem;
+      font-size: 1.6rem;
       font-weight: 800;
       letter-spacing: 2px;
       margin: 2px 0;
     }
-    .result-status { font-size: 0.92rem; font-weight: 700; }
+    .result-status { font-size: 0.9rem; font-weight: 700; }
     .result-memo { font-size: 0.82rem; color: #cbd5e1; margin-top: 2px; }
 
     /* 4연사 썸네일 스트립 */
@@ -202,7 +202,7 @@
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 4px;
-      margin-top: 8px;
+      margin-top: 7px;
       padding-top: 6px;
       border-top: 1px solid rgba(255,255,255,0.1);
     }
@@ -214,7 +214,7 @@
     }
     .burst-slot canvas {
       width: 100%;
-      height: 32px;
+      height: 30px;
       background: #0f172a;
       border: 2px solid #475569;
       border-radius: 4px;
@@ -222,9 +222,8 @@
     }
     .burst-slot canvas.active { border-color: #facc15; }
     .burst-slot canvas.hit { border-color: #4ade80; box-shadow: 0 0 8px rgba(74, 222, 128, 0.6); }
-    .burst-slot span { font-size: 0.64rem; color: var(--muted); }
-
-    .raw-ocr { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+    .burst-slot span { font-size: 0.63rem; color: var(--muted); }
+    .raw-ocr { font-size: 0.71rem; color: var(--muted); margin-top: 4px; }
 
     /* 조작 버튼 */
     .controls {
@@ -233,10 +232,10 @@
       gap: 6px;
     }
     button, .file-label {
-      padding: 10px 6px;
+      padding: 9px 6px;
       border: none;
       border-radius: 9px;
-      font-size: 0.84rem;
+      font-size: 0.83rem;
       font-weight: 700;
       cursor: pointer;
       text-align: center;
@@ -246,6 +245,7 @@
     button:active { transform: scale(0.98); }
     button.secondary { background: #334155; }
     button.auto-on { background: #0d9488; }
+    button.success-btn { background: var(--success); }
 
     /* 섹션 카드 */
     .section {
@@ -259,15 +259,16 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 6px;
+      gap: 6px;
     }
-    .section-header h2 { font-size: 0.88rem; }
+    .section-header h2 { font-size: 0.87rem; }
 
-    /* 전체 인식 번호 리스트 (화면 실시간 표시) */
+    /* 전체 인식 번호 리스트 */
     .log-list {
       list-style: none;
-      max-height: 155px;
+      max-height: 130px;
       overflow-y: auto;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       background: #0f172a;
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -277,23 +278,23 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 6px 2px;
+      padding: 5px 2px;
       border-bottom: 1px solid #1e293b;
     }
     .log-list li:last-child { border-bottom: none; }
     .log-list li.row-reg {
       background: rgba(22, 163, 74, 0.16);
       border-radius: 6px;
-      padding: 6px 6px;
+      padding: 5px 6px;
       margin: 2px 0;
     }
     .plate-badge-reg {
       display: inline-block;
       background: var(--success);
       color: #fff;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 800;
-      padding: 2px 6px;
+      padding: 2px 5px;
       border-radius: 4px;
       margin-right: 4px;
     }
@@ -301,24 +302,70 @@
       display: inline-block;
       background: #334155;
       color: #cbd5e1;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 700;
-      padding: 2px 6px;
+      padding: 2px 5px;
       border-radius: 4px;
       margin-right: 4px;
     }
-    .tag-ok { color: #4ade80; font-weight: 700; font-size: 0.76rem; }
-    .tag-gen { color: #94a3b8; font-weight: 600; font-size: 0.76rem; }
+    .tag-ok { color: #4ade80; font-weight: 700; font-size: 0.74rem; }
+    .tag-gen { color: #94a3b8; font-weight: 600; font-size: 0.74rem; }
+
+    /* SMS 수신자 및 문구 설정 영역 */
+    .sms-field-label {
+      display: block;
+      font-size: 0.75rem;
+      color: #cbd5e1;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    .sms-template-input {
+      width: 100%;
+      background: #0f172a;
+      color: #f8fafc;
+      border: 1px solid #475569;
+      border-radius: 7px;
+      padding: 7px 9px;
+      font-size: 0.84rem;
+      margin-bottom: 8px;
+    }
+    .recipient-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+    .recipient-row {
+      display: grid;
+      grid-template-columns: 24px 0.8fr 1.3fr;
+      gap: 5px;
+      align-items: center;
+    }
+    .recipient-num-tag {
+      font-size: 0.74rem;
+      color: var(--muted);
+      font-weight: 700;
+      text-align: center;
+    }
+    .recipient-row input {
+      width: 100%;
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 0.8rem;
+    }
 
     textarea {
       width: 100%;
-      height: 82px;
+      height: 80px;
       background: #0f172a;
       color: var(--text);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 8px;
-      font-size: 0.84rem;
+      font-size: 0.83rem;
       line-height: 1.4;
       resize: vertical;
     }
@@ -335,27 +382,27 @@
     .file-label { background: #475569; display: inline-block; }
     input[type="file"] { display: none; }
 
-    /* 등록 차량 전용 확인 팝업 */
+    /* 등록 차량 전용 팝업 */
     .popup-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.72);
+      background: rgba(0, 0, 0, 0.76);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 9999;
-      padding: 20px;
+      padding: 16px;
     }
     .popup-overlay.show { display: flex; }
     .popup-box {
       width: 100%;
-      max-width: 390px;
+      max-width: 410px;
       border-radius: 16px;
-      padding: 24px 20px;
+      padding: 20px 18px;
       text-align: center;
       border: 4px solid var(--success);
       background: #102a1c;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.65);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
       animation: popIn 0.16s ease-out;
     }
     @keyframes popIn {
@@ -364,33 +411,76 @@
     }
     .popup-badge {
       display: inline-block;
-      padding: 5px 14px;
+      padding: 4px 14px;
       border-radius: 999px;
-      font-size: 0.94rem;
+      font-size: 0.9rem;
       font-weight: 800;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       background: var(--success);
       color: #fff;
     }
     .popup-plate {
-      font-size: 2.25rem;
+      font-size: 2.15rem;
       font-weight: 900;
       letter-spacing: 2px;
-      margin: 4px 0;
+      margin: 2px 0;
       color: #fff;
     }
     .popup-memo {
-      font-size: 1.1rem;
+      font-size: 1.02rem;
       font-weight: 600;
       color: #bbf7d0;
-      margin-bottom: 18px;
+      margin-bottom: 10px;
     }
-    .popup-close {
+    .popup-sms-preview {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid #22c55e;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.84rem;
+      color: #e2e8f0;
+      margin-bottom: 12px;
+      word-break: keep-all;
+    }
+    .popup-sms-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+    .popup-sms-all-btn {
       width: 100%;
       padding: 12px;
       font-size: 0.96rem;
       border-radius: 10px;
-      background: #15803d;
+      background: #2563eb;
+      color: #fff;
+      font-weight: 800;
+      text-decoration: none;
+      display: block;
+    }
+    .popup-sms-indiv {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      justify-content: center;
+    }
+    .popup-sms-chip {
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      border-radius: 8px;
+      background: #1e293b;
+      border: 1px solid #38bdf8;
+      color: #e0f2fe;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .popup-close {
+      width: 100%;
+      padding: 10px;
+      font-size: 0.92rem;
+      border-radius: 10px;
+      background: #334155;
       color: #fff;
       font-weight: 700;
     }
@@ -405,7 +495,7 @@
       }
       .app-layout {
         display: grid;
-        grid-template-columns: 1.3fr 1fr;
+        grid-template-columns: 1.25fr 1fr;
         gap: 10px;
         height: calc(100vh - 48px);
       }
@@ -434,7 +524,7 @@
         <video id="video" autoplay playsinline muted></video>
         <div class="guide-overlay">
           <div class="guide-frame" id="guideFrame"></div>
-          <div class="guide-text" id="guideText">전체 번호 화면 표시 · 등록 차량만 팝업 알림</div>
+          <div class="guide-text" id="guideText">전체 번호 화면 표시 · 등록 차량 팝업 및 담당자 문자</div>
         </div>
       </div>
 
@@ -455,14 +545,13 @@
       </div>
     </div>
 
-    <!-- 오른쪽: 최근 인식 결과, 전체 인식 목록, 등록 리스트 -->
+    <!-- 오른쪽: 최근 인식, 전체 목록, 문자 수신자 설정, 등록 리스트 -->
     <div class="right-pane">
       <div id="resultCard" class="result-card">
         <div id="resultStatus" class="result-status">스캔 대기 중</div>
         <div id="plateDisplay" class="plate-number">--- ----</div>
         <div id="resultMemo" class="result-memo">인식된 모든 번호가 아래 목록에 실시간 표시됩니다</div>
 
-        <!-- 4연사 고속 스냅샷 미리보기 -->
         <div class="burst-strip">
           <div class="burst-slot"><canvas id="thumb0" width="160" height="45"></canvas><span>1컷 (0ms)</span></div>
           <div class="burst-slot"><canvas id="thumb1" width="160" height="45"></canvas><span>2컷 (60ms)</span></div>
@@ -479,7 +568,7 @@
         <button type="button" id="invertBtn" class="secondary">🎨 반전: OFF (외교용)</button>
       </div>
 
-      <!-- 전체 인식된 번호 실시간 표시 영역 -->
+      <!-- 전체 인식된 번호 실시간 표시 -->
       <div class="section">
         <div class="section-header">
           <h2>📡 전체 인식 번호 현황 (<span id="detectedTotalCount">0</span>건)</h2>
@@ -490,15 +579,36 @@
         </ul>
       </div>
 
+      <!-- 담당자 문자 발송 및 수신자 설정 (최초 1회, 최대 5명) -->
+      <div class="section">
+        <div class="section-header">
+          <h2>📩 담당자 문자 설정 (<span id="recipientCount">0</span>/5명)</h2>
+          <button type="button" id="autoSmsToggleBtn" class="mini-btn">📲 감지 시 문자앱 자동열기: OFF</button>
+        </div>
+        <label class="sms-field-label" for="smsTemplateInput">
+          문자 내용 양식 (수정 가능 · <span style="color:#38bdf8;">{차량번호} / {이름} / {비고}</span> 자동치환)
+        </label>
+        <input type="text" id="smsTemplateInput" class="sms-template-input" value="{차량번호}/{이름}/{비고} 정문통과" />
+
+        <div class="recipient-grid" id="recipientGrid">
+          <div class="recipient-row"><span class="recipient-num-tag">1</span><input type="text" class="rec-name" placeholder="담당자명(선택)" /><input type="tel" class="rec-phone" placeholder="010-0000-0000" /></div>
+          <div class="recipient-row"><span class="recipient-num-tag">2</span><input type="text" class="rec-name" placeholder="담당자명(선택)" /><input type="tel" class="rec-phone" placeholder="010-0000-0000" /></div>
+          <div class="recipient-row"><span class="recipient-num-tag">3</span><input type="text" class="rec-name" placeholder="담당자명(선택)" /><input type="tel" class="rec-phone" placeholder="010-0000-0000" /></div>
+          <div class="recipient-row"><span class="recipient-num-tag">4</span><input type="text" class="rec-name" placeholder="담당자명(선택)" /><input type="tel" class="rec-phone" placeholder="010-0000-0000" /></div>
+          <div class="recipient-row"><span class="recipient-num-tag">5</span><input type="text" class="rec-name" placeholder="담당자명(선택)" /><input type="tel" class="rec-phone" placeholder="010-0000-0000" /></div>
+        </div>
+        <button type="button" id="saveSmsBtn" class="success-btn" style="width:100%; padding:8px; font-size:0.8rem;">💾 수신자 및 문자양식 저장</button>
+      </div>
+
       <!-- 등록 차량 리스트 관리 -->
       <div class="section">
         <div class="section-header">
           <h2>📋 등록 차량 리스트 (<span id="listCount">0</span>대 · 팝업 대상)</h2>
-          <span style="font-size:0.71rem; color:var(--muted);">폰 브라우저 자동저장</span>
+          <span style="font-size:0.7rem; color:var(--muted);">형식: 차량번호 이름 비고</span>
         </div>
-        <textarea id="plateListInput" placeholder="한 줄에 하나씩 입력&#10;예: 76보3415 테스트차량&#10;예: 외교001-001 대사관"></textarea>
+        <textarea id="plateListInput" placeholder="한 줄에 하나씩 입력&#10;예: 76보3415 홍길동 정문방문&#10;예: 외교001-001 김철수 대사관의전"></textarea>
         <div class="list-actions">
-          <button type="button" id="saveListBtn">💾 리스트 저장</button>
+          <button type="button" id="saveListBtn">💾 차량 리스트 저장</button>
           <label class="file-label" for="csvFileInput">📂 CSV 추가 불러오기</label>
           <input type="file" id="csvFileInput" accept=".csv,.txt" />
         </div>
@@ -506,12 +616,20 @@
     </div>
   </div>
 
-  <!-- 등록 차량 전용 팝업 -->
+  <!-- 등록 차량 전용 확인 및 문자 발송 팝업 -->
   <div id="popupOverlay" class="popup-overlay">
     <div id="popupBox" class="popup-box">
       <div class="popup-badge">✅ 등록 차량 확인</div>
       <div id="popupPlate" class="popup-plate">76보3415</div>
-      <div id="popupMemo" class="popup-memo">테스트 샘플차량</div>
+      <div id="popupMemo" class="popup-memo">홍길동 / 정문방문</div>
+
+      <div id="popupSmsPreview" class="popup-sms-preview">76보3415/홍길동/정문방문 정문통과</div>
+
+      <div class="popup-sms-actions">
+        <a id="popupSmsAllLink" href="#" class="popup-sms-all-btn">📨 등록 담당자 전체 문자 보내기</a>
+        <div id="popupSmsIndivWrap" class="popup-sms-indiv"></div>
+      </div>
+
       <button type="button" id="popupCloseBtn" class="popup-close">확인 (닫기)</button>
     </div>
   </div>
@@ -552,6 +670,15 @@
         document.getElementById('thumb3')
       ];
 
+      // SMS 관련 요소
+      const autoSmsToggleBtn = document.getElementById('autoSmsToggleBtn');
+      const smsTemplateInput = document.getElementById('smsTemplateInput');
+      const recNameInputs = document.querySelectorAll('.rec-name');
+      const recPhoneInputs = document.querySelectorAll('.rec-phone');
+      const saveSmsBtn = document.getElementById('saveSmsBtn');
+      const recipientCount = document.getElementById('recipientCount');
+
+      // 차량 리스트 및 로그 요소
       const plateListInput = document.getElementById('plateListInput');
       const saveListBtn = document.getElementById('saveListBtn');
       const csvFileInput = document.getElementById('csvFileInput');
@@ -560,12 +687,15 @@
       const detectedTotalCount = document.getElementById('detectedTotalCount');
       const clearLogBtn = document.getElementById('clearLogBtn');
 
+      // 팝업 요소
       const popupOverlay = document.getElementById('popupOverlay');
       const popupPlate = document.getElementById('popupPlate');
       const popupMemo = document.getElementById('popupMemo');
+      const popupSmsPreview = document.getElementById('popupSmsPreview');
+      const popupSmsAllLink = document.getElementById('popupSmsAllLink');
+      const popupSmsIndivWrap = document.getElementById('popupSmsIndivWrap');
       const popupCloseBtn = document.getElementById('popupCloseBtn');
 
-      // 고속 작업용 오프스크린 캔버스
       const burstCanvases = Array.from({ length: 4 }, () => document.createElement('canvas'));
       const ocrCanvas = document.createElement('canvas');
       const ocrCtx = ocrCanvas.getContext('2d', { willReadFrequently: true });
@@ -587,8 +717,13 @@
       let prevGrayFrame = null;
       let motionCooldownUntil = 0;
 
+      // registeredMap: key = plate, value = { name: string, note: string }
       let registeredMap = new Map();
-      const recentSeenMap = new Map(); // 차량번호별 최근 인식 시각 기록 (중복 기록 방지)
+      let smsRecipients = []; // [{ name, phone }]
+      let smsTemplate = '{차량번호}/{이름}/{비고} 정문통과';
+      let autoOpenSms = false;
+
+      const recentSeenMap = new Map();
       let totalDetectedCounter = 0;
       let popupTimer = null;
 
@@ -623,7 +758,7 @@
         prevGrayFrame = null;
         if (isWideMode) {
           guideFrame.classList.remove('narrow');
-          guideText.textContent = '전체 번호 화면 표시 · 등록 차량만 팝업 알림';
+          guideText.textContent = '전체 번호 화면 표시 · 등록 차량 팝업 및 담당자 문자';
           rangeBtn.textContent = '📐 박스: 광역(1차선)';
         } else {
           guideFrame.classList.add('narrow');
@@ -633,17 +768,124 @@
       });
 
       /* =========================================
-         2. 등록 차량 전용 팝업 표시
+         2. 문자 수신자(5명) & 양식 저장/불러오기
       ========================================= */
-      function showRegisteredPopup(plate, memo) {
+      function loadSmsSettings() {
+        try {
+          const savedTpl = localStorage.getItem('peter_sms_template');
+          if (savedTpl) {
+            smsTemplate = savedTpl;
+            smsTemplateInput.value = savedTpl;
+          }
+          const savedRecs = JSON.parse(localStorage.getItem('peter_sms_recipients') || '[]');
+          smsRecipients = [];
+          savedRecs.forEach((item, idx) => {
+            if (idx < 5 && item && item.phone) {
+              recNameInputs[idx].value = item.name || '';
+              recPhoneInputs[idx].value = item.phone || '';
+              smsRecipients.push({ name: item.name || '', phone: item.phone.trim() });
+            }
+          });
+          recipientCount.textContent = smsRecipients.length;
+        } catch (e) {}
+      }
+
+      saveSmsBtn.addEventListener('click', () => {
+        smsTemplate = smsTemplateInput.value.trim() || '{차량번호}/{이름}/{비고} 정문통과';
+        smsTemplateInput.value = smsTemplate;
+
+        smsRecipients = [];
+        for (let i = 0; i < 5; i++) {
+          const name = recNameInputs[i].value.trim();
+          const phone = recPhoneInputs[i].value.trim();
+          if (phone) {
+            smsRecipients.push({ name, phone });
+          }
+        }
+        recipientCount.textContent = smsRecipients.length;
+
+        try {
+          localStorage.setItem('peter_sms_template', smsTemplate);
+          localStorage.setItem('peter_sms_recipients', JSON.stringify(smsRecipients));
+        } catch (e) {}
+
+        alert(`문자 양식과 수신자 ${smsRecipients.length}명이 폰에 저장되었습니다.`);
+      });
+
+      autoSmsToggleBtn.addEventListener('click', () => {
+        if (!autoOpenSms && smsRecipients.length === 0) {
+          alert('먼저 아래에서 문자 수신자 핸드폰 번호를 1명 이상 입력하고 저장해 주세요.');
+          return;
+        }
+        autoOpenSms = !autoOpenSms;
+        autoSmsToggleBtn.textContent = autoOpenSms ? '📲 감지 시 문자앱 자동열기: ON' : '📲 감지 시 문자앱 자동열기: OFF';
+        autoSmsToggleBtn.classList.toggle('wake-on', autoOpenSms);
+      });
+
+      function buildSmsMessage(plate, info) {
+        const nameVal = (info && info.name) ? info.name : '-';
+        const noteVal = (info && info.note) ? info.note : '-';
+        return smsTemplate
+          .replace(/\{차량번호\}/g, plate)
+          .replace(/\{이름\}/g, nameVal)
+          .replace(/\{비고\}/g, noteVal);
+      }
+
+      function buildSmsUri(phoneList, messageText) {
+        const cleanNumbers = phoneList
+          .map(p => p.replace(/[^0-9+]/g, ''))
+          .filter(Boolean)
+          .join(',');
+        const sep = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? '&' : '?';
+        return `sms:${cleanNumbers}${sep}body=${encodeURIComponent(messageText)}`;
+      }
+
+      /* =========================================
+         3. 등록 차량 전용 팝업 & 문자 발송 연동
+      ========================================= */
+      function showRegisteredPopup(plate, info) {
         if (popupTimer) clearTimeout(popupTimer);
+
+        const displayDetail = [info.name, info.note].filter(Boolean).join(' / ') || '등록 차량';
+        const smsText = buildSmsMessage(plate, info);
+
         popupPlate.textContent = plate;
-        popupMemo.textContent = memo;
+        popupMemo.textContent = displayDetail;
+        popupSmsPreview.textContent = `문자내용: ${smsText}`;
+
+        // 수신자 버튼 구성
+        popupSmsIndivWrap.innerHTML = '';
+        if (smsRecipients.length > 0) {
+          const allPhones = smsRecipients.map(r => r.phone);
+          const allUri = buildSmsUri(allPhones, smsText);
+          popupSmsAllLink.href = allUri;
+          popupSmsAllLink.textContent = `📨 등록 담당자 전체 문자 보내기 (${smsRecipients.length}명)`;
+          popupSmsAllLink.style.display = 'block';
+
+          smsRecipients.forEach((rec, idx) => {
+            const chip = document.createElement('a');
+            chip.className = 'popup-sms-chip';
+            chip.href = buildSmsUri([rec.phone], smsText);
+            chip.textContent = `👤 ${rec.name || (idx + 1) + '번 담당자'}`;
+            popupSmsIndivWrap.appendChild(chip);
+          });
+
+          // 자동 열기 옵션이 ON이면 즉시 기본 문자 앱 실행
+          if (autoOpenSms) {
+            window.location.href = allUri;
+          }
+        } else {
+          popupSmsAllLink.href = buildSmsUri([''], smsText);
+          popupSmsAllLink.textContent = '📨 수신자 직접 선택하여 문자 보내기 (미등록 상태)';
+          popupSmsAllLink.style.display = 'block';
+        }
+
         popupOverlay.classList.add('show');
 
+        // 문자 발송 버튼을 누를 수 있도록 8초간 팝업 유지
         popupTimer = setTimeout(() => {
           popupOverlay.classList.remove('show');
-        }, 3500);
+        }, 8000);
       }
 
       popupCloseBtn.addEventListener('click', () => {
@@ -659,7 +901,7 @@
       });
 
       /* =========================================
-         3. 화면유지 & 가로모드
+         4. 화면유지 & 가로모드
       ========================================= */
       let wakeLock = null;
       let keepAwakeEnabled = false;
@@ -714,9 +956,18 @@
       });
 
       /* =========================================
-         4. 등록 차량 리스트 관리 & CSV 추가저장
+         5. 등록 차량 리스트 관리 (차량번호 / 이름 / 비고) & CSV 추가저장
       ========================================= */
-      const DEFAULT_LIST = `76보3415 테스트샘플차량\n12가3456 홍길동\n외교001-001 외교차량샘플`;
+      const DEFAULT_LIST = `76보3415 홍길동 테스트방문차량\n12가3456 김철수 임원차량\n외교001-001 이영희 대사관의전`;
+
+      function parseNameAndNote(restText) {
+        const cleaned = restText.replace(/^[,;\s/-]+/, '').trim();
+        if (!cleaned) return { name: '', note: '' };
+        const parts = cleaned.split(/\s+/);
+        const name = parts[0] || '';
+        const note = parts.slice(1).join(' ') || '';
+        return { name, note };
+      }
 
       function extractEntriesFromText(rawText) {
         const result = new Map();
@@ -731,8 +982,8 @@
           const diploMatch = cleanedLine.match(diploRegex);
           if (diploMatch) {
             const plate = `${diploMatch[1]}${diploMatch[2]}-${diploMatch[3]}`;
-            const memo = cleanedLine.replace(diploMatch[0], '').replace(/^[,;\s-]+/, '').trim();
-            result.set(plate, memo || '등록 차량');
+            const rest = cleanedLine.replace(diploMatch[0], '');
+            result.set(plate, parseNameAndNote(rest));
             return;
           }
 
@@ -740,8 +991,8 @@
           const stdMatch = compactForMatch.match(stdRegex);
           if (stdMatch) {
             const plate = stdMatch[1];
-            const memo = compactForMatch.replace(plate, '').replace(/^[,;\s-]+/, '').trim();
-            result.set(plate, memo || '등록 차량');
+            const rest = compactForMatch.replace(plate, '');
+            result.set(plate, parseNameAndNote(rest));
           }
         });
         return result;
@@ -749,8 +1000,9 @@
 
       function syncMapToTextareaAndStorage() {
         const formattedLines = [];
-        registeredMap.forEach((memo, plate) => {
-          formattedLines.push(memo && memo !== '등록 차량' ? `${plate} ${memo}` : plate);
+        registeredMap.forEach((info, plate) => {
+          const extra = [info.name, info.note].filter(Boolean).join(' ');
+          formattedLines.push(extra ? `${plate} ${extra}` : plate);
         });
         const finalStr = formattedLines.join('\n');
         plateListInput.value = finalStr;
@@ -790,8 +1042,8 @@
           registeredMap = extractEntriesFromText(plateListInput.value);
           const beforeCount = registeredMap.size;
           const importedEntries = extractEntriesFromText(text);
-          importedEntries.forEach((memo, plate) => {
-            registeredMap.set(plate, memo);
+          importedEntries.forEach((info, plate) => {
+            registeredMap.set(plate, info);
           });
           syncMapToTextareaAndStorage();
           const addedCount = registeredMap.size - beforeCount;
@@ -802,7 +1054,7 @@
       });
 
       /* =========================================
-         5. 카메라 & OCR 초기화
+         6. 카메라 & OCR 초기화
       ========================================= */
       async function startCamera() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -854,7 +1106,7 @@
       }
 
       /* =========================================
-         6. 가이드 영역 계산 & 고속 4연사 캡처
+         7. 가이드 영역 계산 & 고속 4연사 캡처
       ========================================= */
       function getCropRect() {
         const vw = video.videoWidth;
@@ -910,16 +1162,17 @@
       }
 
       /* =========================================
-         7. 스마트 번호판 보정 & 등록차량 전용 알림
+         8. 스마트 번호판 보정 & 등록차량 전용 알림
       ========================================= */
       function resolvePlateFromOcr(cleanedText) {
         const diploMatch = cleanedText.match(/(외교|영사|준외|준영|국기|협정|대표)(\d{3})(\d{3})/);
         if (diploMatch) {
           const plate = `${diploMatch[1]}${diploMatch[2]}-${diploMatch[3]}`;
+          const isRegistered = registeredMap.has(plate);
           return {
             plate,
-            isRegistered: registeredMap.has(plate),
-            memo: registeredMap.get(plate) || '일반 외교/특수 차량'
+            isRegistered,
+            info: isRegistered ? registeredMap.get(plate) : { name: '', note: '일반 외교/특수 차량' }
           };
         }
 
@@ -932,22 +1185,22 @@
         const rawPlate = `${frontDigits}${hangulChar}${backDigits}`;
 
         if (registeredMap.has(rawPlate)) {
-          return { plate: rawPlate, isRegistered: true, memo: registeredMap.get(rawPlate) };
+          return { plate: rawPlate, isRegistered: true, info: registeredMap.get(rawPlate) };
         }
 
         if (frontDigits.length === 3) {
           const twoDigitPlate = `${frontDigits.slice(1)}${hangulChar}${backDigits}`;
           if (registeredMap.has(twoDigitPlate)) {
-            return { plate: twoDigitPlate, isRegistered: true, memo: registeredMap.get(twoDigitPlate) };
+            return { plate: twoDigitPlate, isRegistered: true, info: registeredMap.get(twoDigitPlate) };
           }
         }
 
         const validFront = frontDigits.length === 3 ? frontDigits.slice(1) : frontDigits;
-        for (const [regPlate, regMemo] of registeredMap.entries()) {
+        for (const [regPlate, regInfo] of registeredMap.entries()) {
           const regMatch = regPlate.match(/^(\d{2,3})([가-힣])(\d{4})$/);
           if (regMatch) {
             if ((regMatch[1] === frontDigits || regMatch[1] === validFront) && regMatch[3] === backDigits) {
-              return { plate: regPlate, isRegistered: true, memo: regMemo };
+              return { plate: regPlate, isRegistered: true, info: regInfo };
             }
           }
         }
@@ -956,10 +1209,9 @@
           ? `${frontDigits.slice(1)}${hangulChar}${backDigits}`
           : rawPlate;
 
-        return { plate: displayPlate, isRegistered: false, memo: '일반 통과 차량' };
+        return { plate: displayPlate, isRegistered: false, info: { name: '', note: '일반 통과 차량' } };
       }
 
-      // 등록 차량 감지 시에만 작동하는 알림음 및 진동
       function triggerRegisteredAlert() {
         if (navigator.vibrate) {
           navigator.vibrate([180, 80, 180]);
@@ -979,14 +1231,14 @@
         } catch (e) {}
       }
 
-      // 전체 인식된 번호를 화면 리스트에 추가
-      function addDetectedPlateToScreen(plate, isRegistered, memo) {
+      function addDetectedPlateToScreen(plate, isRegistered, info) {
         if (totalDetectedCounter === 0) {
           logList.innerHTML = '';
         }
         totalDetectedCounter++;
         detectedTotalCount.textContent = totalDetectedCounter;
 
+        const detailText = [info.name, info.note].filter(Boolean).join(' / ') || '등록 차량';
         const now = new Date().toTimeString().slice(0, 8);
         const li = document.createElement('li');
         if (isRegistered) li.className = 'row-reg';
@@ -995,7 +1247,7 @@
           <span>
             <span class="${isRegistered ? 'plate-badge-reg' : 'plate-badge-gen'}">${isRegistered ? '등록' : '일반'}</span>
             <strong>${plate}</strong>
-            <small style="color:var(--muted);">(${memo})</small>
+            <small style="color:var(--muted);">(${detailText})</small>
           </span>
           <span class="${isRegistered ? 'tag-ok' : 'tag-gen'}">${now}</span>
         `;
@@ -1007,33 +1259,30 @@
       }
 
       function applyRecognizedResult(resolved) {
-        const { plate, isRegistered, memo } = resolved;
+        const { plate, isRegistered, info } = resolved;
+        const detailText = [info.name, info.note].filter(Boolean).join(' / ') || (isRegistered ? '등록 차량' : '일반 통과 차량');
 
-        // 1. 상단 최근 인식 카드 즉시 업데이트 (전체 번호 표시)
         plateDisplay.textContent = plate;
         resultCard.className = 'result-card ' + (isRegistered ? 'registered' : 'general');
         resultStatus.textContent = isRegistered ? '✅ 등록된 차량입니다!' : '🚘 일반 차량 인식됨';
-        resultMemo.textContent = memo;
+        resultMemo.textContent = detailText;
 
-        // 2. 동일 번호 연속 중복 기록 방지 (차량별 3초 간격)
         const now = Date.now();
         const lastTime = recentSeenMap.get(plate) || 0;
         if (now - lastTime > 3000) {
           recentSeenMap.set(plate, now);
 
-          // 전체 인식 번호는 모두 화면 목록에 표시
-          addDetectedPlateToScreen(plate, isRegistered, memo);
+          addDetectedPlateToScreen(plate, isRegistered, info);
 
-          // 팝업과 알림음은 '등록된 차량'일 때만 실행
           if (isRegistered) {
             triggerRegisteredAlert();
-            showRegisteredPopup(plate, memo);
+            showRegisteredPopup(plate, info);
           }
         }
       }
 
       /* =========================================
-         8. 4연사 고속 캡처 & 중앙 우선 순차 판독
+         9. 4연사 고속 캡처 & 순차 판독
       ========================================= */
       const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -1098,7 +1347,7 @@
       }
 
       /* =========================================
-         9. 초경량 실시간 움직임 감시 루프
+         10. 실시간 움직임 감시 루프
       ========================================= */
       function monitorMotionLoop() {
         const rect = getCropRect();
@@ -1164,7 +1413,8 @@
         logList.innerHTML = '<li style="color:var(--muted); justify-content:center;">인식된 차량 번호가 여기에 실시간으로 표시됩니다.</li>';
       });
 
-      // 앱 시작
+      // 앱 초기화
+      loadSmsSettings();
       loadSavedList();
       startCamera();
       initOCR();
