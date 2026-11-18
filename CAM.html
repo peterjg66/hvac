@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>차량 번호판 감별기 v2.7</title>
-  <!-- 버전: v2.7 | 수신자·메시지·메일 설정 제거(독립형) + 카메라 다중폴백·렌즈전환 + 주행4연사 + 전체표시/등록팝업 통합판 -->
+  <title>차량 번호판 감별기 v2.8</title>
+  <!-- 버전: v2.8 | 방 코드·원클릭 링크 실시간 웹 공유(송신/수신 모드) + 카메라 다중폴백·렌즈전환 + 주행4연사 + 전체표시/등록팝업 통합판 -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     :root {
@@ -23,7 +23,7 @@
       background: var(--bg);
       color: var(--text);
       padding: 10px;
-      max-width: 840px;
+      max-width: 860px;
       margin: 0 auto;
     }
 
@@ -82,6 +82,70 @@
     }
     .badge.ready { background: #15803d; color: #fff; }
     .badge.err { background: #b91c1c; color: #fff; }
+
+    /* 실시간 원거리 공유 바 */
+    .share-bar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .share-mode-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .mode-btn-group {
+      display: flex;
+      gap: 4px;
+    }
+    .mode-btn {
+      padding: 5px 9px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      border-radius: 7px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #cbd5e1;
+      cursor: pointer;
+    }
+    .mode-btn.active-local { background: #475569; color: #fff; border-color: #94a3b8; }
+    .mode-btn.active-tx { background: #0284c7; color: #fff; border-color: #38bdf8; }
+    .mode-btn.active-rx { background: #7c3aed; color: #fff; border-color: #c084fc; }
+
+    .share-detail-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.76rem;
+      padding-top: 4px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .room-input {
+      width: 76px;
+      padding: 4px 6px;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      border-radius: 6px;
+      border: 1px solid #38bdf8;
+      background: #0f172a;
+      color: #fff;
+    }
+    .share-status-text {
+      font-size: 0.74rem;
+      color: #93c5fd;
+      font-weight: 600;
+      margin-left: auto;
+    }
 
     /* 레이아웃 */
     .app-layout {
@@ -146,6 +210,35 @@
       background: rgba(0, 0, 0, 0.72);
       padding: 2px 9px;
       border-radius: 10px;
+    }
+
+    /* 수신(원격 모니터) 전용 안내 화면 */
+    .rx-monitor-screen {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 16px;
+      z-index: 5;
+    }
+    .rx-monitor-screen.show { display: flex; }
+    .rx-pulse-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+      animation: pulseRing 1.6s infinite;
+      margin-bottom: 10px;
+    }
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { box-shadow: 0 0 0 14px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
     }
 
     /* 튜닝 슬라이더 & 움직임 게이지 */
@@ -401,7 +494,12 @@
       font-size: 1.08rem;
       font-weight: 600;
       color: #bbf7d0;
-      margin-bottom: 18px;
+      margin-bottom: 10px;
+    }
+    .popup-source-tag {
+      font-size: 0.78rem;
+      color: #93c5fd;
+      margin-bottom: 14px;
     }
     .popup-close {
       width: 100%;
@@ -425,7 +523,7 @@
         display: grid;
         grid-template-columns: 1.25fr 1fr;
         gap: 10px;
-        height: calc(100vh - 52px);
+        height: calc(100vh - 96px);
       }
       .left-pane { height: 100%; min-height: 0; }
       .camera-box { aspect-ratio: auto; flex: 1; min-height: 140px; }
@@ -438,7 +536,7 @@
   <header>
     <div class="title-wrap">
       <h1>🚘 차량 번호판 감별기</h1>
-      <span class="version-tag">v2.7</span>
+      <span class="version-tag">v2.8</span>
     </div>
     <div class="header-tools">
       <button type="button" id="camRetryBtn" class="mini-btn">📷 카메라</button>
@@ -449,18 +547,48 @@
     </div>
   </header>
 
+  <!-- 방 코드 + 원클릭 링크 실시간 공유 바 -->
+  <div class="share-bar">
+    <div class="share-mode-row">
+      <div class="mode-btn-group">
+        <button type="button" id="modeLocalBtn" class="mode-btn active-local">📱 단독 사용</button>
+        <button type="button" id="modeTxBtn" class="mode-btn">📡 송신(검출폰)</button>
+        <button type="button" id="modeRxBtn" class="mode-btn">📺 수신(원격폰)</button>
+      </div>
+      <span id="shareStatusText" class="share-status-text">단독 모드 (공유 미사용)</span>
+    </div>
+
+    <div id="shareDetailRow" class="share-detail-row" style="display:none;">
+      <span>방 코드:</span>
+      <input type="text" id="roomCodeInput" class="room-input" maxlength="6" placeholder="4829" />
+      <button type="button" id="roomActionBtn" class="mini-btn" style="background:#0284c7;">새 코드</button>
+      <button type="button" id="copyLinkBtn" class="mini-btn" style="background:#15803d;">🔗 수신 링크 복사</button>
+      <button type="button" id="testShareBtn" class="mini-btn">🔔 공유 테스트</button>
+    </div>
+  </div>
+
   <div class="app-layout">
-    <!-- 왼쪽: 카메라 + 줌/명암/움직임감지 튜닝 -->
+    <!-- 왼쪽: 카메라 (또는 원격 수신 대기 화면) + 줌/명암/움직임감지 튜닝 -->
     <div class="left-pane">
       <div class="camera-box">
         <video id="video" autoplay playsinline muted></video>
-        <div class="guide-overlay">
+        <div class="guide-overlay" id="guideOverlay">
           <div class="guide-frame" id="guideFrame"></div>
           <div class="guide-text" id="guideText">전체 번호 화면 표시 · 등록 차량만 팝업 알림</div>
         </div>
+
+        <!-- 수신(원격폰) 전용 모니터 화면 -->
+        <div class="rx-monitor-screen" id="rxMonitorScreen">
+          <div class="rx-pulse-dot"></div>
+          <h2 style="font-size:1.1rem; margin-bottom:6px; color:#e0e7ff;">📺 원거리 실시간 수신 대기 중</h2>
+          <p id="rxRoomInfoText" style="font-size:0.84rem; color:#a5b4fc; margin-bottom:10px;">방 코드: ---- 연결 중...</p>
+          <p style="font-size:0.76rem; color:#94a3b8; line-height:1.45;">
+            현장 검출 폰에서 등록 차량이 인식되면<br/>이 화면에도 즉시 팝업과 알림음이 울립니다.
+          </p>
+        </div>
       </div>
 
-      <div class="tuning-bar">
+      <div class="tuning-bar" id="tuningBar">
         <div class="slider-group">
           <label><span>🔍 화면 줌</span><span id="zoomVal">1.3x</span></label>
           <input type="range" id="zoomSlider" min="1.0" max="3.0" step="0.1" value="1.3" />
@@ -484,7 +612,7 @@
         <div id="plateDisplay" class="plate-number">--- ----</div>
         <div id="resultMemo" class="result-memo">인식된 모든 번호가 아래 목록에 실시간 표시됩니다</div>
 
-        <div class="burst-strip">
+        <div class="burst-strip" id="burstStrip">
           <div class="burst-slot"><canvas id="thumb0" width="160" height="45"></canvas><span>1컷 (0ms)</span></div>
           <div class="burst-slot"><canvas id="thumb1" width="160" height="45"></canvas><span>2컷 (60ms)</span></div>
           <div class="burst-slot"><canvas id="thumb2" width="160" height="45"></canvas><span>3컷 (120ms)</span></div>
@@ -493,7 +621,7 @@
         <div id="rawOcr" class="raw-ocr">인식 원문: -</div>
       </div>
 
-      <div class="controls">
+      <div class="controls" id="cameraControls">
         <button type="button" id="motionAutoBtn" class="secondary">⚡ 주행감지 연사: OFF</button>
         <button type="button" id="scanBtn">🔍 수동 1회 스캔</button>
         <button type="button" id="rangeBtn" class="secondary">📐 박스: 광역(1차선)</button>
@@ -512,7 +640,7 @@
       </div>
 
       <!-- 등록 차량 리스트 관리 -->
-      <div class="section">
+      <div class="section" id="regListSection">
         <div class="section-header">
           <h2>📋 등록 차량 리스트 (<span id="listCount">0</span>대 · 팝업 대상)</h2>
           <span style="font-size:0.7rem; color:var(--muted);">형식: 차량번호 이름 비고</span>
@@ -533,6 +661,7 @@
       <div class="popup-badge">✅ 등록 차량 확인</div>
       <div id="popupPlate" class="popup-plate">76보3415</div>
       <div id="popupMemo" class="popup-memo">홍길동 / 정문방문</div>
+      <div id="popupSourceTag" class="popup-source-tag">현장 카메라 인식</div>
       <button type="button" id="popupCloseBtn" class="popup-close">확인 (닫기)</button>
     </div>
   </div>
@@ -545,8 +674,26 @@
       const wakeBtn = document.getElementById('wakeBtn');
       const landscapeBtn = document.getElementById('landscapeBtn');
       const engineStatus = document.getElementById('engineStatus');
+      const guideOverlay = document.getElementById('guideOverlay');
       const guideFrame = document.getElementById('guideFrame');
       const guideText = document.getElementById('guideText');
+      const rxMonitorScreen = document.getElementById('rxMonitorScreen');
+      const rxRoomInfoText = document.getElementById('rxRoomInfoText');
+      const tuningBar = document.getElementById('tuningBar');
+      const burstStrip = document.getElementById('burstStrip');
+      const cameraControls = document.getElementById('cameraControls');
+      const regListSection = document.getElementById('regListSection');
+
+      // 실시간 공유 UI 요소
+      const modeLocalBtn = document.getElementById('modeLocalBtn');
+      const modeTxBtn = document.getElementById('modeTxBtn');
+      const modeRxBtn = document.getElementById('modeRxBtn');
+      const shareStatusText = document.getElementById('shareStatusText');
+      const shareDetailRow = document.getElementById('shareDetailRow');
+      const roomCodeInput = document.getElementById('roomCodeInput');
+      const roomActionBtn = document.getElementById('roomActionBtn');
+      const copyLinkBtn = document.getElementById('copyLinkBtn');
+      const testShareBtn = document.getElementById('testShareBtn');
 
       const zoomSlider = document.getElementById('zoomSlider');
       const zoomVal = document.getElementById('zoomVal');
@@ -587,6 +734,7 @@
       const popupOverlay = document.getElementById('popupOverlay');
       const popupPlate = document.getElementById('popupPlate');
       const popupMemo = document.getElementById('popupMemo');
+      const popupSourceTag = document.getElementById('popupSourceTag');
       const popupCloseBtn = document.getElementById('popupCloseBtn');
 
       const burstCanvases = Array.from({ length: 4 }, () => document.createElement('canvas'));
@@ -619,6 +767,219 @@
       let currentStream = null;
       let videoDevices = [];
       let currentDeviceIdx = 0;
+
+      // 실시간 공유 상태 ('local' | 'tx' | 'rx')
+      let shareMode = 'local';
+      let currentRoomCode = '';
+      let sseSource = null;
+      const TOPIC_PREFIX = 'peter_lpr_v28_room_';
+
+      /* =========================================
+         0. 방 코드 & 원클릭 링크 실시간 웹 공유 엔진
+      ========================================= */
+      function generateRandomRoomCode() {
+        return String(Math.floor(1000 + Math.random() * 9000));
+      }
+
+      function closeRxStream() {
+        if (sseSource) {
+          sseSource.close();
+          sseSource = null;
+        }
+      }
+
+      function stopCameraStream() {
+        if (currentStream) {
+          currentStream.getTracks().forEach(track => track.stop());
+          currentStream = null;
+          video.srcObject = null;
+        }
+      }
+
+      function setShareMode(newMode, customRoomCode = null) {
+        shareMode = newMode;
+        closeRxStream();
+
+        modeLocalBtn.className = 'mode-btn' + (newMode === 'local' ? ' active-local' : '');
+        modeTxBtn.className = 'mode-btn' + (newMode === 'tx' ? ' active-tx' : '');
+        modeRxBtn.className = 'mode-btn' + (newMode === 'rx' ? ' active-rx' : '');
+
+        if (newMode === 'local') {
+          shareDetailRow.style.display = 'none';
+          shareStatusText.textContent = '단독 모드 (공유 미사용)';
+          rxMonitorScreen.classList.remove('show');
+          guideOverlay.style.display = 'flex';
+          tuningBar.style.display = 'grid';
+          burstStrip.style.display = 'grid';
+          cameraControls.style.display = 'grid';
+          regListSection.style.display = 'block';
+          if (!currentStream) startCamera(false);
+          return;
+        }
+
+        shareDetailRow.style.display = 'flex';
+        if (customRoomCode) {
+          currentRoomCode = customRoomCode;
+        } else if (!currentRoomCode) {
+          currentRoomCode = roomCodeInput.value.trim() || generateRandomRoomCode();
+        }
+        roomCodeInput.value = currentRoomCode;
+
+        if (newMode === 'tx') {
+          // 송신(검출폰) 모드
+          roomActionBtn.textContent = '새 코드';
+          copyLinkBtn.style.display = 'inline-block';
+          testShareBtn.style.display = 'inline-block';
+          shareStatusText.textContent = `📡 송신 활성 (방 ${currentRoomCode})`;
+
+          rxMonitorScreen.classList.remove('show');
+          guideOverlay.style.display = 'flex';
+          tuningBar.style.display = 'grid';
+          burstStrip.style.display = 'grid';
+          cameraControls.style.display = 'grid';
+          regListSection.style.display = 'block';
+          if (!currentStream) startCamera(false);
+        } else if (newMode === 'rx') {
+          // 수신(원격폰) 모드: 배터리 절약을 위해 카메라 중지 후 SSE 연결
+          motionTriggerActive = false;
+          motionAutoBtn.textContent = '⚡ 주행감지 연사: OFF';
+          motionAutoBtn.classList.remove('auto-on');
+          stopCameraStream();
+
+          roomActionBtn.textContent = '연결';
+          copyLinkBtn.style.display = 'none';
+          testShareBtn.style.display = 'none';
+
+          rxMonitorScreen.classList.add('show');
+          guideOverlay.style.display = 'none';
+          tuningBar.style.display = 'none';
+          burstStrip.style.display = 'none';
+          cameraControls.style.display = 'none';
+          regListSection.style.display = 'none';
+          rawOcr.textContent = '원격 수신 모드 작동 중 (검출 폰 데이터 대기)';
+
+          connectRxRoom(currentRoomCode);
+        }
+      }
+
+      async function publishRegisteredDetection(plate, info) {
+        if (shareMode !== 'tx' || !currentRoomCode) return;
+        const payload = {
+          plate,
+          name: info.name || '',
+          note: info.note || '',
+          time: new Date().toTimeString().slice(0, 8)
+        };
+        try {
+          await fetch(`https://ntfy.sh/${TOPIC_PREFIX}${encodeURIComponent(currentRoomCode)}`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+          shareStatusText.textContent = `📡 전송됨: ${plate} (${payload.time})`;
+        } catch (err) {
+          shareStatusText.textContent = '⚠️ 전송 네트워크 오류';
+        }
+      }
+
+      function connectRxRoom(code) {
+        closeRxStream();
+        const cleanCode = code.trim();
+        if (!cleanCode) {
+          alert('4자리 방 코드를 입력해 주세요.');
+          return;
+        }
+        currentRoomCode = cleanCode;
+        roomCodeInput.value = cleanCode;
+        shareStatusText.textContent = `⏳ 방 [${cleanCode}] 연결 중...`;
+        rxRoomInfoText.textContent = `방 코드: [ ${cleanCode} ] 서버 연결 중...`;
+
+        const url = `https://ntfy.sh/${TOPIC_PREFIX}${encodeURIComponent(cleanCode)}/sse`;
+        sseSource = new EventSource(url);
+
+        sseSource.onopen = () => {
+          shareStatusText.textContent = `🟢 수신 연결됨 (방 ${cleanCode})`;
+          rxRoomInfoText.textContent = `방 코드: [ ${cleanCode} ] 실시간 수신 연결 완료`;
+        };
+
+        sseSource.onmessage = (event) => {
+          try {
+            const envelope = JSON.parse(event.data);
+            if (!envelope || envelope.event !== 'message' || !envelope.message) return;
+            const data = JSON.parse(envelope.message);
+            if (!data || !data.plate) return;
+
+            const info = { name: data.name || '', note: data.note || '' };
+            const detailText = [info.name, info.note].filter(Boolean).join(' / ') || '등록 차량';
+
+            plateDisplay.textContent = data.plate;
+            resultCard.className = 'result-card registered';
+            resultStatus.textContent = '✅ [원격 수신] 등록 차량 통과!';
+            resultMemo.textContent = detailText;
+
+            addDetectedPlateToScreen(data.plate, true, info, data.time);
+            triggerRegisteredAlert();
+            showRegisteredPopup(data.plate, info, `📡 원격 수신 (방 ${cleanCode} · ${data.time || ''})`);
+          } catch (e) {
+            console.warn('수신 메시지 파싱 무시:', e);
+          }
+        };
+
+        sseSource.onerror = () => {
+          shareStatusText.textContent = `🔄 재연결 시도 중 (방 ${cleanCode})...`;
+        };
+      }
+
+      modeLocalBtn.addEventListener('click', () => setShareMode('local'));
+      modeTxBtn.addEventListener('click', () => setShareMode('tx'));
+      modeRxBtn.addEventListener('click', () => setShareMode('rx'));
+
+      roomActionBtn.addEventListener('click', () => {
+        if (shareMode === 'tx') {
+          const newCode = generateRandomRoomCode();
+          setShareMode('tx', newCode);
+        } else if (shareMode === 'rx') {
+          const code = roomCodeInput.value.trim();
+          connectRxRoom(code);
+        }
+      });
+
+      roomCodeInput.addEventListener('change', () => {
+        const code = roomCodeInput.value.trim();
+        if (!code) return;
+        currentRoomCode = code;
+        if (shareMode === 'tx') {
+          shareStatusText.textContent = `📡 송신 활성 (방 ${currentRoomCode})`;
+        } else if (shareMode === 'rx') {
+          connectRxRoom(currentRoomCode);
+        }
+      });
+
+      copyLinkBtn.addEventListener('click', async () => {
+        const code = roomCodeInput.value.trim() || currentRoomCode;
+        if (!code) return;
+        currentRoomCode = code;
+        const baseUrl = window.location.href.split('?')[0].split('#')[0];
+        const shareUrl = `${baseUrl}?room=${encodeURIComponent(code)}`;
+
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(shareUrl);
+            alert(`원클릭 수신 링크가 복사되었습니다!\n카톡이나 문자로 원격지 폰에 보내주세요.\n\n${shareUrl}`);
+          } else {
+            prompt('아래 링크를 복사해 원격지 폰에 보내주세요:', shareUrl);
+          }
+        } catch (err) {
+          prompt('아래 링크를 복사해 원격지 폰에 보내주세요:', shareUrl);
+        }
+      });
+
+      testShareBtn.addEventListener('click', async () => {
+        const code = roomCodeInput.value.trim() || currentRoomCode;
+        if (!code) return;
+        currentRoomCode = code;
+        await publishRegisteredDetection('76보3415', { name: '홍길동', note: '공유테스트' });
+        alert(`방 [${code}]으로 테스트 신호를 보냈습니다.\n수신 폰에 팝업이 뜨는지 확인해 보세요!`);
+      });
 
       /* =========================================
          1. 슬라이더 & 토글 설정
@@ -663,17 +1024,18 @@
       /* =========================================
          2. 등록 차량 전용 팝업 표시
       ========================================= */
-      function showRegisteredPopup(plate, info) {
+      function showRegisteredPopup(plate, info, sourceLabel = '현장 카메라 인식') {
         if (popupTimer) clearTimeout(popupTimer);
 
         const displayDetail = [info.name, info.note].filter(Boolean).join(' / ') || '등록 차량';
         popupPlate.textContent = plate;
         popupMemo.textContent = displayDetail;
+        popupSourceTag.textContent = sourceLabel;
         popupOverlay.classList.add('show');
 
         popupTimer = setTimeout(() => {
           popupOverlay.classList.remove('show');
-        }, 3500);
+        }, 4000);
       }
 
       popupCloseBtn.addEventListener('click', () => {
@@ -853,18 +1215,15 @@
       }
 
       async function startCamera(useSpecificDevice = false) {
+        if (shareMode === 'rx') return; // 원격 수신 모드에서는 카메라 실행 안 함
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           resultStatus.textContent = '⚠️ 카메라 차단됨 (HTTPS 주소 필요)';
           resultMemo.textContent = 'GitHub Pages(https://) 보안 주소로 접속해야 카메라가 켜집니다.';
           return;
         }
 
-        if (currentStream) {
-          currentStream.getTracks().forEach(track => track.stop());
-          currentStream = null;
-          video.srcObject = null;
-        }
-
+        stopCameraStream();
         resultStatus.textContent = '📷 카메라 연결 중...';
 
         const constraintCandidates = [];
@@ -924,9 +1283,13 @@
         camRetryBtn.textContent = '📷 연결됨';
       }
 
-      camRetryBtn.addEventListener('click', () => startCamera(false));
+      camRetryBtn.addEventListener('click', () => {
+        if (shareMode === 'rx') setShareMode('local');
+        else startCamera(false);
+      });
 
       camSwitchBtn.addEventListener('click', async () => {
+        if (shareMode === 'rx') return;
         await enumerateVideoDevices();
         if (videoDevices.length <= 1) {
           startCamera(false);
@@ -1014,7 +1377,7 @@
       }
 
       /* =========================================
-         7. 스마트 번호판 보정 & 등록차량 전용 알림
+         7. 스마트 번호판 보정 & 등록차량 전용 알림 + 원격 송신
       ========================================= */
       function resolvePlateFromOcr(cleanedText) {
         const diploMatch = cleanedText.match(/(외교|영사|준외|준영|국기|협정|대표)(\d{3})(\d{3})/);
@@ -1083,7 +1446,7 @@
         } catch (e) {}
       }
 
-      function addDetectedPlateToScreen(plate, isRegistered, info) {
+      function addDetectedPlateToScreen(plate, isRegistered, info, customTime = null) {
         if (totalDetectedCounter === 0) {
           logList.innerHTML = '';
         }
@@ -1091,7 +1454,7 @@
         detectedTotalCount.textContent = totalDetectedCounter;
 
         const detailText = [info.name, info.note].filter(Boolean).join(' / ') || '등록 차량';
-        const now = new Date().toTimeString().slice(0, 8);
+        const timeStr = customTime || new Date().toTimeString().slice(0, 8);
         const li = document.createElement('li');
         if (isRegistered) li.className = 'row-reg';
 
@@ -1101,7 +1464,7 @@
             <strong>${plate}</strong>
             <small style="color:var(--muted);">(${detailText})</small>
           </span>
-          <span class="${isRegistered ? 'tag-ok' : 'tag-gen'}">${now}</span>
+          <span class="${isRegistered ? 'tag-ok' : 'tag-gen'}">${timeStr}</span>
         `;
         logList.prepend(li);
 
@@ -1128,7 +1491,8 @@
 
           if (isRegistered) {
             triggerRegisteredAlert();
-            showRegisteredPopup(plate, info);
+            showRegisteredPopup(plate, info, shareMode === 'tx' ? `현장 인식 · 방 [${currentRoomCode}] 송신됨` : '현장 카메라 인식');
+            publishRegisteredDetection(plate, info);
           }
         }
       }
@@ -1139,7 +1503,7 @@
       const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
       async function executeBurstCaptureAndScan() {
-        if (isBusy || !ocrReady || !worker) return;
+        if (shareMode === 'rx' || isBusy || !ocrReady || !worker) return;
         if (!getCropRect()) return;
 
         isBusy = true;
@@ -1203,7 +1567,7 @@
       ========================================= */
       function monitorMotionLoop() {
         const rect = getCropRect();
-        if (rect && !isBusy && !video.paused && !video.ended) {
+        if (shareMode !== 'rx' && rect && !isBusy && !video.paused && !video.ended) {
           motionCtx.drawImage(video, rect.cropX, rect.cropY, rect.cropW, rect.cropH, 0, 0, 160, 54);
           const frameData = motionCtx.getImageData(0, 0, 160, 54).data;
           const pixelCount = 160 * 54;
@@ -1265,10 +1629,18 @@
         logList.innerHTML = '<li style="color:var(--muted); justify-content:center;">인식된 차량 번호가 여기에 실시간으로 표시됩니다.</li>';
       });
 
-      // 앱 초기화
+      // 앱 초기화 및 URL 파라미터(?room=XXXX) 자동 진입 확인
       loadSavedList();
-      startCamera(false);
       initOCR();
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomParam = urlParams.get('room');
+      if (roomParam && roomParam.trim()) {
+        setShareMode('rx', roomParam.trim());
+      } else {
+        setShareMode('local');
+      }
+
       requestAnimationFrame(monitorMotionLoop);
     }
 
