@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>차량 번호판 감별기 v2.6</title>
-  <!-- 버전: v2.6 | 카메라 다중폴백·렌즈전환 + 주행4연사 + 전체표시/등록팝업 + Gmail자동발송 + 수신자CSV 통합판 -->
+  <title>차량 번호판 감별기 v2.7</title>
+  <!-- 버전: v2.7 | 수신자·메시지·메일 설정 제거(독립형) + 카메라 다중폴백·렌즈전환 + 주행4연사 + 전체표시/등록팝업 통합판 -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     :root {
@@ -263,7 +263,6 @@
     button:active { transform: scale(0.98); }
     button.secondary { background: #334155; }
     button.auto-on { background: #0d9488; }
-    button.success-btn { background: var(--success); }
 
     /* 섹션 카드 */
     .section {
@@ -284,7 +283,7 @@
     /* 전체 인식 번호 리스트 */
     .log-list {
       list-style: none;
-      max-height: 130px;
+      max-height: 165px;
       overflow-y: auto;
       font-size: 0.8rem;
       background: #0f172a;
@@ -329,55 +328,9 @@
     .tag-ok { color: #4ade80; font-weight: 700; font-size: 0.74rem; }
     .tag-gen { color: #94a3b8; font-weight: 600; font-size: 0.74rem; }
 
-    /* Gmail 자동 발송 설정 영역 */
-    .mail-field-label {
-      display: block;
-      font-size: 0.74rem;
-      color: #cbd5e1;
-      margin-bottom: 3px;
-      font-weight: 600;
-    }
-    .mail-input {
-      width: 100%;
-      background: #0f172a;
-      color: #f8fafc;
-      border: 1px solid #475569;
-      border-radius: 7px;
-      padding: 7px 9px;
-      font-size: 0.82rem;
-      margin-bottom: 7px;
-    }
-    .recipient-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      margin-bottom: 8px;
-    }
-    .recipient-row {
-      display: grid;
-      grid-template-columns: 22px 0.75fr 1.35fr;
-      gap: 5px;
-      align-items: center;
-    }
-    .recipient-num-tag {
-      font-size: 0.73rem;
-      color: var(--muted);
-      font-weight: 700;
-      text-align: center;
-    }
-    .recipient-row input {
-      width: 100%;
-      background: #0f172a;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 6px 8px;
-      font-size: 0.79rem;
-    }
-
     textarea {
       width: 100%;
-      height: 80px;
+      height: 95px;
       background: #0f172a;
       color: var(--text);
       border: 1px solid var(--border);
@@ -414,9 +367,9 @@
     .popup-overlay.show { display: flex; }
     .popup-box {
       width: 100%;
-      max-width: 400px;
+      max-width: 390px;
       border-radius: 16px;
-      padding: 22px 18px;
+      padding: 24px 18px;
       text-align: center;
       border: 4px solid var(--success);
       background: #102a1c;
@@ -433,38 +386,27 @@
       border-radius: 999px;
       font-size: 0.9rem;
       font-weight: 800;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
       background: var(--success);
       color: #fff;
     }
     .popup-plate {
-      font-size: 2.15rem;
+      font-size: 2.25rem;
       font-weight: 900;
       letter-spacing: 2px;
-      margin: 2px 0;
+      margin: 4px 0;
       color: #fff;
     }
     .popup-memo {
-      font-size: 1.02rem;
+      font-size: 1.08rem;
       font-weight: 600;
       color: #bbf7d0;
-      margin-bottom: 10px;
-    }
-    .popup-mail-status {
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid #22c55e;
-      border-radius: 8px;
-      padding: 9px 10px;
-      font-size: 0.83rem;
-      color: #e2e8f0;
-      margin-bottom: 14px;
-      line-height: 1.45;
-      word-break: keep-all;
+      margin-bottom: 18px;
     }
     .popup-close {
       width: 100%;
       padding: 11px;
-      font-size: 0.94rem;
+      font-size: 0.95rem;
       border-radius: 10px;
       background: #15803d;
       color: #fff;
@@ -496,7 +438,7 @@
   <header>
     <div class="title-wrap">
       <h1>🚘 차량 번호판 감별기</h1>
-      <span class="version-tag">v2.6</span>
+      <span class="version-tag">v2.7</span>
     </div>
     <div class="header-tools">
       <button type="button" id="camRetryBtn" class="mini-btn">📷 카메라</button>
@@ -514,7 +456,7 @@
         <video id="video" autoplay playsinline muted></video>
         <div class="guide-overlay">
           <div class="guide-frame" id="guideFrame"></div>
-          <div class="guide-text" id="guideText">전체 번호 화면 표시 · 등록 차량 감지 시 Gmail 자동발송</div>
+          <div class="guide-text" id="guideText">전체 번호 화면 표시 · 등록 차량만 팝업 알림</div>
         </div>
       </div>
 
@@ -535,7 +477,7 @@
       </div>
     </div>
 
-    <!-- 오른쪽: 최근 인식, 전체 목록, Gmail 자동발송 설정, 등록 리스트 -->
+    <!-- 오른쪽: 최근 인식, 전체 목록, 등록 리스트 -->
     <div class="right-pane">
       <div id="resultCard" class="result-card">
         <div id="resultStatus" class="result-status">스캔 대기 중</div>
@@ -569,49 +511,10 @@
         </ul>
       </div>
 
-      <!-- Gmail 자동 발송 및 수신자 설정 (최초 1회, 최대 5명) -->
-      <div class="section">
-        <div class="section-header">
-          <h2>📧 담당자 Gmail 자동발송 (<span id="recipientCount">0</span>/5명)</h2>
-          <button type="button" id="autoMailToggleBtn" class="mini-btn wake-on">📨 자동발송: ON</button>
-        </div>
-
-        <label class="mail-field-label" for="gasUrlInput">
-          1. Google Apps Script 웹 앱 URL (최초 1회 붙여넣기)
-        </label>
-        <input type="url" id="gasUrlInput" class="mail-input" placeholder="https://script.google.com/macros/s/.../exec" />
-
-        <label class="mail-field-label" for="mailTemplateInput">
-          2. 메일 제목/내용 양식 (수정 가능 · <span style="color:#38bdf8;">{차량번호} / {이름} / {비고} / {시각}</span> 자동치환)
-        </label>
-        <input type="text" id="mailTemplateInput" class="mail-input" value="{차량번호}/{이름}/{비고} 정문통과" />
-
-        <label class="mail-field-label">
-          3. 메일 수신자 입력 (최초 1회 · 최대 5명)
-        </label>
-        <div class="recipient-grid">
-          <div class="recipient-row"><span class="recipient-num-tag">1</span><input type="text" class="rec-name" placeholder="담당자명(선택)" /><input type="email" class="rec-email" placeholder="example1@gmail.com" /></div>
-          <div class="recipient-row"><span class="recipient-num-tag">2</span><input type="text" class="rec-name" placeholder="담당자명(선택)" /><input type="email" class="rec-email" placeholder="example2@gmail.com" /></div>
-          <div class="recipient-row"><span class="recipient-num-tag">3</span><input type="text" class="rec-name" placeholder="담당자명(선택)" /><input type="email" class="rec-email" placeholder="example3@gmail.com" /></div>
-          <div class="recipient-row"><span class="recipient-num-tag">4</span><input type="text" class="rec-name" placeholder="담당자명(선택)" /><input type="email" class="rec-email" placeholder="example4@gmail.com" /></div>
-          <div class="recipient-row"><span class="recipient-num-tag">5</span><input type="text" class="rec-name" placeholder="담당자명(선택)" /><input type="email" class="rec-email" placeholder="example5@gmail.com" /></div>
-        </div>
-
-        <div class="list-actions">
-          <button type="button" id="saveMailBtn" class="success-btn">💾 Gmail 설정 저장</button>
-          <button type="button" id="testMailBtn" class="secondary">🚀 테스트 메일 발송</button>
-        </div>
-        <div class="list-actions">
-          <button type="button" id="exportMailCsvBtn" class="secondary">📥 수신자 CSV 저장</button>
-          <label class="file-label" for="importMailCsvInput">📂 수신자 CSV 불러오기</label>
-          <input type="file" id="importMailCsvInput" accept=".csv,.txt" />
-        </div>
-      </div>
-
       <!-- 등록 차량 리스트 관리 -->
       <div class="section">
         <div class="section-header">
-          <h2>📋 등록 차량 리스트 (<span id="listCount">0</span>대 · 팝업/메일 대상)</h2>
+          <h2>📋 등록 차량 리스트 (<span id="listCount">0</span>대 · 팝업 대상)</h2>
           <span style="font-size:0.7rem; color:var(--muted);">형식: 차량번호 이름 비고</span>
         </div>
         <textarea id="plateListInput" placeholder="한 줄에 하나씩 입력&#10;예: 76보3415 홍길동 정문방문&#10;예: 외교001-001 김철수 대사관의전"></textarea>
@@ -630,7 +533,6 @@
       <div class="popup-badge">✅ 등록 차량 확인</div>
       <div id="popupPlate" class="popup-plate">76보3415</div>
       <div id="popupMemo" class="popup-memo">홍길동 / 정문방문</div>
-      <div id="popupMailStatus" class="popup-mail-status">📨 Gmail 자동 발송 처리 중...</div>
       <button type="button" id="popupCloseBtn" class="popup-close">확인 (닫기)</button>
     </div>
   </div>
@@ -672,18 +574,6 @@
         document.getElementById('thumb3')
       ];
 
-      // Gmail 자동발송 관련 요소
-      const autoMailToggleBtn = document.getElementById('autoMailToggleBtn');
-      const gasUrlInput = document.getElementById('gasUrlInput');
-      const mailTemplateInput = document.getElementById('mailTemplateInput');
-      const recNameInputs = document.querySelectorAll('.rec-name');
-      const recEmailInputs = document.querySelectorAll('.rec-email');
-      const saveMailBtn = document.getElementById('saveMailBtn');
-      const testMailBtn = document.getElementById('testMailBtn');
-      const exportMailCsvBtn = document.getElementById('exportMailCsvBtn');
-      const importMailCsvInput = document.getElementById('importMailCsvInput');
-      const recipientCount = document.getElementById('recipientCount');
-
       // 차량 리스트 및 로그 요소
       const plateListInput = document.getElementById('plateListInput');
       const saveListBtn = document.getElementById('saveListBtn');
@@ -697,7 +587,6 @@
       const popupOverlay = document.getElementById('popupOverlay');
       const popupPlate = document.getElementById('popupPlate');
       const popupMemo = document.getElementById('popupMemo');
-      const popupMailStatus = document.getElementById('popupMailStatus');
       const popupCloseBtn = document.getElementById('popupCloseBtn');
 
       const burstCanvases = Array.from({ length: 4 }, () => document.createElement('canvas'));
@@ -722,11 +611,6 @@
       let motionCooldownUntil = 0;
 
       let registeredMap = new Map();
-      let gasWebhookUrl = '';
-      let mailRecipients = [];
-      let mailTemplate = '{차량번호}/{이름}/{비고} 정문통과';
-      let autoSendMail = true;
-
       const recentSeenMap = new Map();
       let totalDetectedCounter = 0;
       let popupTimer = null;
@@ -767,7 +651,7 @@
         prevGrayFrame = null;
         if (isWideMode) {
           guideFrame.classList.remove('narrow');
-          guideText.textContent = '전체 번호 화면 표시 · 등록 차량 감지 시 Gmail 자동발송';
+          guideText.textContent = '전체 번호 화면 표시 · 등록 차량만 팝업 알림';
           rangeBtn.textContent = '📐 박스: 광역(1차선)';
         } else {
           guideFrame.classList.add('narrow');
@@ -777,244 +661,19 @@
       });
 
       /* =========================================
-         2. Gmail 자동발송 설정 저장/불러오기 & 수신자 CSV 내보내기/가져오기
+         2. 등록 차량 전용 팝업 표시
       ========================================= */
-      function collectRecipientsFromInputs() {
-        const list = [];
-        for (let i = 0; i < 5; i++) {
-          const name = recNameInputs[i].value.trim();
-          const email = recEmailInputs[i].value.trim();
-          if (email) {
-            list.push({ name, email });
-          }
-        }
-        return list;
-      }
-
-      function persistMailSettingsToStorage() {
-        gasWebhookUrl = gasUrlInput.value.trim();
-        mailTemplate = mailTemplateInput.value.trim() || '{차량번호}/{이름}/{비고} 정문통과';
-        mailTemplateInput.value = mailTemplate;
-        mailRecipients = collectRecipientsFromInputs();
-        recipientCount.textContent = mailRecipients.length;
-
-        try {
-          localStorage.setItem('peter_gas_url', gasWebhookUrl);
-          localStorage.setItem('peter_mail_template', mailTemplate);
-          localStorage.setItem('peter_mail_recipients', JSON.stringify(mailRecipients));
-        } catch (e) {}
-      }
-
-      function loadMailSettings() {
-        try {
-          const savedUrl = localStorage.getItem('peter_gas_url') || '';
-          gasWebhookUrl = savedUrl;
-          gasUrlInput.value = savedUrl;
-
-          const savedTpl = localStorage.getItem('peter_mail_template');
-          if (savedTpl) {
-            mailTemplate = savedTpl;
-            mailTemplateInput.value = savedTpl;
-          }
-
-          const savedRecs = JSON.parse(localStorage.getItem('peter_mail_recipients') || '[]');
-          mailRecipients = [];
-          savedRecs.forEach((item, idx) => {
-            if (idx < 5 && item && item.email) {
-              recNameInputs[idx].value = item.name || '';
-              recEmailInputs[idx].value = item.email || '';
-              mailRecipients.push({ name: item.name || '', email: item.email.trim() });
-            }
-          });
-          recipientCount.textContent = mailRecipients.length;
-        } catch (e) {}
-      }
-
-      saveMailBtn.addEventListener('click', () => {
-        persistMailSettingsToStorage();
-        alert(`Gmail 웹 앱 URL과 수신자 ${mailRecipients.length}명이 폰에 저장되었습니다.`);
-      });
-
-      function escapeCsvCell(val) {
-        const str = String(val ?? '');
-        if (/[",\r\n]/.test(str)) {
-          return '"' + str.replace(/"/g, '""') + '"';
-        }
-        return str;
-      }
-
-      exportMailCsvBtn.addEventListener('click', () => {
-        persistMailSettingsToStorage();
-
-        if (mailRecipients.length === 0) {
-          alert('CSV로 저장할 수신자 이메일을 1명 이상 입력해 주세요.');
-          return;
-        }
-
-        const csvRows = ['순번,담당자명,이메일'];
-        mailRecipients.forEach((rec, idx) => {
-          csvRows.push([
-            idx + 1,
-            escapeCsvCell(rec.name),
-            escapeCsvCell(rec.email)
-          ].join(','));
-        });
-
-        const csvContent = '\uFEFF' + csvRows.join('\r\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-
-        const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `수신자_Gmail_목록_${today}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      });
-
-      importMailCsvInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          const buffer = evt.target.result;
-          let text = '';
-          try {
-            text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
-          } catch (err) {
-            text = new TextDecoder('euc-kr').decode(buffer);
-          }
-
-          const lines = text.split(/\r?\n/);
-          const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-          const parsedList = [];
-
-          lines.forEach(line => {
-            const trimmed = line.trim();
-            if (!trimmed) return;
-            const emailMatch = trimmed.match(emailRegex);
-            if (!emailMatch) return;
-
-            const email = emailMatch[0];
-            const cells = trimmed.split(/[,\t]+/).map(c => c.replace(/^"|"$/g, '').trim()).filter(Boolean);
-            let name = '';
-            for (const cell of cells) {
-              if (cell === email) continue;
-              if (/^\d+$/.test(cell)) continue;
-              name = cell;
-              break;
-            }
-            parsedList.push({ name, email });
-          });
-
-          if (parsedList.length === 0) {
-            alert('파일에서 유효한 이메일 주소를 찾지 못했습니다.');
-            importMailCsvInput.value = '';
-            return;
-          }
-
-          for (let i = 0; i < 5; i++) {
-            recNameInputs[i].value = parsedList[i] ? parsedList[i].name : '';
-            recEmailInputs[i].value = parsedList[i] ? parsedList[i].email : '';
-          }
-
-          persistMailSettingsToStorage();
-          const extraNotice = parsedList.length > 5 ? `\n(※ 최대 5명까지 등록 가능하여 상위 5명만 반영되었습니다.)` : '';
-          alert(`CSV 파일에서 수신자 ${mailRecipients.length}명을 불러와 저장했습니다.${extraNotice}`);
-          importMailCsvInput.value = '';
-        };
-        reader.readAsArrayBuffer(file);
-      });
-
-      autoMailToggleBtn.addEventListener('click', () => {
-        autoSendMail = !autoSendMail;
-        autoMailToggleBtn.textContent = autoSendMail ? '📨 자동발송: ON' : '📨 자동발송: OFF';
-        autoMailToggleBtn.classList.toggle('wake-on', autoSendMail);
-      });
-
-      function buildMailMessage(plate, info) {
-        const nowStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-        const nameVal = (info && info.name) ? info.name : '-';
-        const noteVal = (info && info.note) ? info.note : '-';
-        return mailTemplate
-          .replace(/\{차량번호\}/g, plate)
-          .replace(/\{이름\}/g, nameVal)
-          .replace(/\{비고\}/g, noteVal)
-          .replace(/\{시각\}/g, nowStr);
-      }
-
-      async function sendGmailAutomatically(plate, info) {
-        const msgText = buildMailMessage(plate, info);
-
-        if (!autoSendMail) {
-          return { ok: false, reason: '자동발송이 OFF 상태입니다.' };
-        }
-        if (!gasWebhookUrl || !gasWebhookUrl.startsWith('https://script.google.com/')) {
-          return { ok: false, reason: 'Google Apps Script 웹 앱 URL이 설정되지 않았습니다.' };
-        }
-        if (mailRecipients.length === 0) {
-          return { ok: false, reason: '수신자 이메일이 등록되지 않았습니다.' };
-        }
-
-        const toAddresses = mailRecipients.map(r => r.email).join(',');
-        const nowFull = new Date().toLocaleString('ko-KR');
-
-        try {
-          await fetch(gasWebhookUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              to: toAddresses,
-              subject: `[차량통과] ${msgText}`,
-              body: `${msgText}\n\n- 통과 시각: ${nowFull}\n- 자동 감별기 발송`
-            })
-          });
-          return {
-            ok: true,
-            msgText,
-            count: mailRecipients.length
-          };
-        } catch (err) {
-          return { ok: false, reason: '네트워크 오류: ' + err.message };
-        }
-      }
-
-      testMailBtn.addEventListener('click', async () => {
-        persistMailSettingsToStorage();
-        const res = await sendGmailAutomatically('76보3415', { name: '홍길동', note: '테스트발송' });
-        if (res.ok) {
-          alert(`✅ ${res.count}명의 수신자에게 테스트 메일 발송 신호를 보냈습니다!\n내용: ${res.msgText}`);
-        } else {
-          alert(`⚠️ 발송 실패: ${res.reason}`);
-        }
-      });
-
-      /* =========================================
-         3. 등록 차량 전용 팝업 표시
-      ========================================= */
-      async function showRegisteredPopupAndSendMail(plate, info) {
+      function showRegisteredPopup(plate, info) {
         if (popupTimer) clearTimeout(popupTimer);
 
         const displayDetail = [info.name, info.note].filter(Boolean).join(' / ') || '등록 차량';
         popupPlate.textContent = plate;
         popupMemo.textContent = displayDetail;
-        popupMailStatus.textContent = '⏳ 담당자 Gmail 자동 발송 중...';
         popupOverlay.classList.add('show');
-
-        const sendResult = await sendGmailAutomatically(plate, info);
-        if (sendResult.ok) {
-          popupMailStatus.innerHTML = `✅ <strong>Gmail 자동 발송 완료 (${sendResult.count}명)</strong><br>${sendResult.msgText}`;
-        } else {
-          popupMailStatus.innerHTML = `⚠️ <strong>메일 미발송:</strong> ${sendResult.reason}`;
-        }
 
         popupTimer = setTimeout(() => {
           popupOverlay.classList.remove('show');
-        }, 4000);
+        }, 3500);
       }
 
       popupCloseBtn.addEventListener('click', () => {
@@ -1030,7 +689,7 @@
       });
 
       /* =========================================
-         4. 화면유지 & 가로모드
+         3. 화면유지 & 가로모드
       ========================================= */
       let wakeLock = null;
       let keepAwakeEnabled = false;
@@ -1085,7 +744,7 @@
       });
 
       /* =========================================
-         5. 등록 차량 리스트 관리 & CSV 추가저장
+         4. 등록 차량 리스트 관리 & CSV 추가저장
       ========================================= */
       const DEFAULT_LIST = `76보3415 홍길동 테스트방문차량\n12가3456 김철수 임원차량\n외교001-001 이영희 대사관의전`;
 
@@ -1183,7 +842,7 @@
       });
 
       /* =========================================
-         6. 카메라 다중 폴백 초기화 & 렌즈 전환 + OCR 초기화
+         5. 카메라 다중 폴백 초기화 & 렌즈 전환 + OCR 초기화
       ========================================= */
       async function enumerateVideoDevices() {
         try {
@@ -1200,7 +859,6 @@
           return;
         }
 
-        // 기존 스트림이 열려 있으면 먼저 완전히 정지하여 카메라 점유 해제
         if (currentStream) {
           currentStream.getTracks().forEach(track => track.stop());
           currentStream = null;
@@ -1300,7 +958,7 @@
       }
 
       /* =========================================
-         7. 가이드 영역 계산 & 고속 4연사 캡처
+         6. 가이드 영역 계산 & 고속 4연사 캡처
       ========================================= */
       function getCropRect() {
         const vw = video.videoWidth;
@@ -1356,7 +1014,7 @@
       }
 
       /* =========================================
-         8. 스마트 번호판 보정 & 등록차량 전용 알림
+         7. 스마트 번호판 보정 & 등록차량 전용 알림
       ========================================= */
       function resolvePlateFromOcr(cleanedText) {
         const diploMatch = cleanedText.match(/(외교|영사|준외|준영|국기|협정|대표)(\d{3})(\d{3})/);
@@ -1470,13 +1128,13 @@
 
           if (isRegistered) {
             triggerRegisteredAlert();
-            showRegisteredPopupAndSendMail(plate, info);
+            showRegisteredPopup(plate, info);
           }
         }
       }
 
       /* =========================================
-         9. 4연사 고속 캡처 & 순차 판독
+         8. 4연사 고속 캡처 & 순차 판독
       ========================================= */
       const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -1541,7 +1199,7 @@
       }
 
       /* =========================================
-         10. 실시간 움직임 감시 루프
+         9. 실시간 움직임 감시 루프
       ========================================= */
       function monitorMotionLoop() {
         const rect = getCropRect();
@@ -1608,7 +1266,6 @@
       });
 
       // 앱 초기화
-      loadMailSettings();
       loadSavedList();
       startCamera(false);
       initOCR();
