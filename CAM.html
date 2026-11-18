@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>차량 번호판 감별기 v2.8</title>
-  <!-- 버전: v2.8 | 방 코드·원클릭 링크 실시간 웹 공유(송신/수신 모드) + 카메라 다중폴백·렌즈전환 + 주행4연사 + 전체표시/등록팝업 통합판 -->
+  <title>차량 번호판 감별기 v2.9</title>
+  <!-- 버전: v2.9 | 등록차량 음성안내(TTS) + 방 코드·원클릭 링크 실시간 웹 공유 + 카메라 다중폴백·렌즈전환 + 주행4연사 통합판 -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     :root {
@@ -70,6 +70,11 @@
     .mini-btn.wake-on {
       background: var(--warn);
       border-color: #fbbf24;
+      color: #fff;
+    }
+    .mini-btn.tts-on {
+      background: #0284c7;
+      border-color: #38bdf8;
       color: #fff;
     }
     .badge {
@@ -164,7 +169,7 @@
       position: relative;
       width: 100%;
       aspect-ratio: 16 / 9;
-      min-height: 190px;
+      min-height: 195px;
       background: #000;
       border-radius: 12px;
       overflow: hidden;
@@ -222,23 +227,34 @@
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 16px;
+      padding: 14px;
       z-index: 5;
     }
     .rx-monitor-screen.show { display: flex; }
     .rx-pulse-dot {
-      width: 14px;
-      height: 14px;
+      width: 13px;
+      height: 13px;
       border-radius: 50%;
       background: #22c55e;
       box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
       animation: pulseRing 1.6s infinite;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
     @keyframes pulseRing {
       0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
       70% { box-shadow: 0 0 0 14px rgba(34, 197, 94, 0); }
       100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    .rx-audio-btn {
+      margin-top: 10px;
+      padding: 7px 14px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border-radius: 8px;
+      border: 1px solid #38bdf8;
+      background: #0284c7;
+      color: #fff;
+      cursor: pointer;
     }
 
     /* 튜닝 슬라이더 & 움직임 게이지 */
@@ -536,11 +552,12 @@
   <header>
     <div class="title-wrap">
       <h1>🚘 차량 번호판 감별기</h1>
-      <span class="version-tag">v2.8</span>
+      <span class="version-tag">v2.9</span>
     </div>
     <div class="header-tools">
       <button type="button" id="camRetryBtn" class="mini-btn">📷 카메라</button>
       <button type="button" id="camSwitchBtn" class="mini-btn">🔄 렌즈전환</button>
+      <button type="button" id="ttsToggleBtn" class="mini-btn tts-on">🔊 음성: ON</button>
       <button type="button" id="wakeBtn" class="mini-btn">☀️ 화면유지: OFF</button>
       <button type="button" id="landscapeBtn" class="mini-btn">↔️ 가로모드</button>
       <span id="engineStatus" class="badge">OCR 로딩중...</span>
@@ -574,17 +591,18 @@
         <video id="video" autoplay playsinline muted></video>
         <div class="guide-overlay" id="guideOverlay">
           <div class="guide-frame" id="guideFrame"></div>
-          <div class="guide-text" id="guideText">전체 번호 화면 표시 · 등록 차량만 팝업 알림</div>
+          <div class="guide-text" id="guideText">전체 번호 화면 표시 · 등록 차량 팝업 및 음성 안내</div>
         </div>
 
         <!-- 수신(원격폰) 전용 모니터 화면 -->
         <div class="rx-monitor-screen" id="rxMonitorScreen">
           <div class="rx-pulse-dot"></div>
-          <h2 style="font-size:1.1rem; margin-bottom:6px; color:#e0e7ff;">📺 원거리 실시간 수신 대기 중</h2>
-          <p id="rxRoomInfoText" style="font-size:0.84rem; color:#a5b4fc; margin-bottom:10px;">방 코드: ---- 연결 중...</p>
-          <p style="font-size:0.76rem; color:#94a3b8; line-height:1.45;">
-            현장 검출 폰에서 등록 차량이 인식되면<br/>이 화면에도 즉시 팝업과 알림음이 울립니다.
+          <h2 style="font-size:1.05rem; margin-bottom:4px; color:#e0e7ff;">📺 원거리 실시간 수신 대기 중</h2>
+          <p id="rxRoomInfoText" style="font-size:0.82rem; color:#a5b4fc; margin-bottom:6px;">방 코드: ---- 연결 중...</p>
+          <p style="font-size:0.74rem; color:#94a3b8; line-height:1.4;">
+            현장 검출 폰에서 등록 차량이 인식되면<br/>팝업과 함께 음성으로 차량번호와 이름을 안내합니다.
           </p>
+          <button type="button" id="rxTestAudioBtn" class="rx-audio-btn">🔊 음성 테스트 / 오디오 활성화</button>
         </div>
       </div>
 
@@ -642,7 +660,7 @@
       <!-- 등록 차량 리스트 관리 -->
       <div class="section" id="regListSection">
         <div class="section-header">
-          <h2>📋 등록 차량 리스트 (<span id="listCount">0</span>대 · 팝업 대상)</h2>
+          <h2>📋 등록 차량 리스트 (<span id="listCount">0</span>대 · 팝업/음성 대상)</h2>
           <span style="font-size:0.7rem; color:var(--muted);">형식: 차량번호 이름 비고</span>
         </div>
         <textarea id="plateListInput" placeholder="한 줄에 하나씩 입력&#10;예: 76보3415 홍길동 정문방문&#10;예: 외교001-001 김철수 대사관의전"></textarea>
@@ -671,6 +689,7 @@
       const video = document.getElementById('video');
       const camRetryBtn = document.getElementById('camRetryBtn');
       const camSwitchBtn = document.getElementById('camSwitchBtn');
+      const ttsToggleBtn = document.getElementById('ttsToggleBtn');
       const wakeBtn = document.getElementById('wakeBtn');
       const landscapeBtn = document.getElementById('landscapeBtn');
       const engineStatus = document.getElementById('engineStatus');
@@ -679,6 +698,7 @@
       const guideText = document.getElementById('guideText');
       const rxMonitorScreen = document.getElementById('rxMonitorScreen');
       const rxRoomInfoText = document.getElementById('rxRoomInfoText');
+      const rxTestAudioBtn = document.getElementById('rxTestAudioBtn');
       const tuningBar = document.getElementById('tuningBar');
       const burstStrip = document.getElementById('burstStrip');
       const cameraControls = document.getElementById('cameraControls');
@@ -772,10 +792,127 @@
       let shareMode = 'local';
       let currentRoomCode = '';
       let sseSource = null;
-      const TOPIC_PREFIX = 'peter_lpr_v28_room_';
+      const TOPIC_PREFIX = 'peter_lpr_v29_room_';
+
+      // 음성 안내(TTS) 상태
+      let ttsEnabled = true;
 
       /* =========================================
-         0. 방 코드 & 원클릭 링크 실시간 웹 공유 엔진
+         0. 한국어 음성 안내 (TTS) 엔진
+      ========================================= */
+      function loadTtsSetting() {
+        try {
+          const saved = localStorage.getItem('peter_tts_enabled');
+          if (saved === 'false') {
+            ttsEnabled = false;
+          }
+        } catch (e) {}
+        updateTtsButtonUI();
+      }
+
+      function updateTtsButtonUI() {
+        if (ttsEnabled) {
+          ttsToggleBtn.textContent = '🔊 음성: ON';
+          ttsToggleBtn.classList.add('tts-on');
+        } else {
+          ttsToggleBtn.textContent = '🔇 음성: OFF';
+          ttsToggleBtn.classList.remove('tts-on');
+        }
+      }
+
+      function speakTextKorean(text, delayMs = 0) {
+        if (!ttsEnabled || !('speechSynthesis' in window)) return;
+        setTimeout(() => {
+          try {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = 'ko-KR';
+            utter.rate = 1.02;
+            utter.pitch = 1.0;
+            utter.volume = 1.0;
+
+            const voices = window.speechSynthesis.getVoices();
+            const koVoice = voices.find(v => v.lang && v.lang.toLowerCase().includes('ko'));
+            if (koVoice) utter.voice = koVoice;
+
+            window.speechSynthesis.speak(utter);
+          } catch (e) {
+            console.warn('TTS 재생 실패:', e);
+          }
+        }, delayMs);
+      }
+
+      function formatPlateForSpeech(plate) {
+        // 일반 번호판 (예: 76보3415 -> "7 6 보, 3 4 1 5")
+        const stdMatch = plate.match(/^(\d{2,3})([가-힣])(\d{4})$/);
+        if (stdMatch) {
+          const frontSpaced = stdMatch[1].split('').join(' ');
+          const backSpaced = stdMatch[3].split('').join(' ');
+          return `${frontSpaced} ${stdMatch[2]}, ${backSpaced}`;
+        }
+        // 외교·특수 번호판 (예: 외교001-001 -> "외교 0 0 1, 0 0 1")
+        const diploMatch = plate.match(/^(외교|영사|준외|준영|국기|협정|대표)(\d{3})-(\d{3})$/);
+        if (diploMatch) {
+          const p1 = diploMatch[2].split('').join(' ');
+          const p2 = diploMatch[3].split('').join(' ');
+          return `${diploMatch[1]} ${p1}, ${p2}`;
+        }
+        return plate;
+      }
+
+      function announceRegisteredVehicleTTS(plate, info) {
+        if (!ttsEnabled) return;
+        const spokenPlate = formatPlateForSpeech(plate);
+        const ownerName = (info && info.name) ? info.name.trim() : '';
+        const sentence = ownerName
+          ? `${spokenPlate}, ${ownerName} 님, 등록 차량입니다.`
+          : `${spokenPlate}, 등록 차량입니다.`;
+        // 짧은 알림음(약 280ms)이 끝난 직후 음성 출력
+        speakTextKorean(sentence, 320);
+      }
+
+      // 모바일 브라우저 오디오/음성 잠금 첫 터치 해제
+      function unlockMobileAudioOnce() {
+        try {
+          if ('speechSynthesis' in window) {
+            window.speechSynthesis.getVoices();
+          }
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            const ctx = new AudioCtx();
+            if (ctx.state === 'suspended') ctx.resume();
+          }
+        } catch (e) {}
+      }
+      document.addEventListener('touchstart', unlockMobileAudioOnce, { once: true });
+      document.addEventListener('click', unlockMobileAudioOnce, { once: true });
+
+      ttsToggleBtn.addEventListener('click', () => {
+        ttsEnabled = !ttsEnabled;
+        try {
+          localStorage.setItem('peter_tts_enabled', String(ttsEnabled));
+        } catch (e) {}
+        updateTtsButtonUI();
+
+        if (ttsEnabled) {
+          speakTextKorean('음성 안내를 켭니다.', 50);
+        } else if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      });
+
+      rxTestAudioBtn.addEventListener('click', () => {
+        if (!ttsEnabled) {
+          ttsEnabled = true;
+          try { localStorage.setItem('peter_tts_enabled', 'true'); } catch (e) {}
+          updateTtsButtonUI();
+        }
+        triggerRegisteredAlert();
+        announceRegisteredVehicleTTS('76보3415', { name: '홍길동' });
+      });
+
+      /* =========================================
+         1. 방 코드 & 원클릭 링크 실시간 웹 공유 엔진
       ========================================= */
       function generateRandomRoomCode() {
         return String(Math.floor(1000 + Math.random() * 9000));
@@ -826,7 +963,6 @@
         roomCodeInput.value = currentRoomCode;
 
         if (newMode === 'tx') {
-          // 송신(검출폰) 모드
           roomActionBtn.textContent = '새 코드';
           copyLinkBtn.style.display = 'inline-block';
           testShareBtn.style.display = 'inline-block';
@@ -840,7 +976,6 @@
           regListSection.style.display = 'block';
           if (!currentStream) startCamera(false);
         } else if (newMode === 'rx') {
-          // 수신(원격폰) 모드: 배터리 절약을 위해 카메라 중지 후 SSE 연결
           motionTriggerActive = false;
           motionAutoBtn.textContent = '⚡ 주행감지 연사: OFF';
           motionAutoBtn.classList.remove('auto-on');
@@ -918,6 +1053,7 @@
 
             addDetectedPlateToScreen(data.plate, true, info, data.time);
             triggerRegisteredAlert();
+            announceRegisteredVehicleTTS(data.plate, info);
             showRegisteredPopup(data.plate, info, `📡 원격 수신 (방 ${cleanCode} · ${data.time || ''})`);
           } catch (e) {
             console.warn('수신 메시지 파싱 무시:', e);
@@ -978,11 +1114,11 @@
         if (!code) return;
         currentRoomCode = code;
         await publishRegisteredDetection('76보3415', { name: '홍길동', note: '공유테스트' });
-        alert(`방 [${code}]으로 테스트 신호를 보냈습니다.\n수신 폰에 팝업이 뜨는지 확인해 보세요!`);
+        alert(`방 [${code}]으로 테스트 신호를 보냈습니다.\n수신 폰에 팝업과 음성 안내가 나오는지 확인해 보세요!`);
       });
 
       /* =========================================
-         1. 슬라이더 & 토글 설정
+         2. 슬라이더 & 토글 설정
       ========================================= */
       zoomSlider.addEventListener('input', () => {
         zoomFactor = parseFloat(zoomSlider.value);
@@ -1012,7 +1148,7 @@
         prevGrayFrame = null;
         if (isWideMode) {
           guideFrame.classList.remove('narrow');
-          guideText.textContent = '전체 번호 화면 표시 · 등록 차량만 팝업 알림';
+          guideText.textContent = '전체 번호 화면 표시 · 등록 차량 팝업 및 음성 안내';
           rangeBtn.textContent = '📐 박스: 광역(1차선)';
         } else {
           guideFrame.classList.add('narrow');
@@ -1022,7 +1158,7 @@
       });
 
       /* =========================================
-         2. 등록 차량 전용 팝업 표시
+         3. 등록 차량 전용 팝업 표시
       ========================================= */
       function showRegisteredPopup(plate, info, sourceLabel = '현장 카메라 인식') {
         if (popupTimer) clearTimeout(popupTimer);
@@ -1051,7 +1187,7 @@
       });
 
       /* =========================================
-         3. 화면유지 & 가로모드
+         4. 화면유지 & 가로모드
       ========================================= */
       let wakeLock = null;
       let keepAwakeEnabled = false;
@@ -1106,7 +1242,7 @@
       });
 
       /* =========================================
-         4. 등록 차량 리스트 관리 & CSV 추가저장
+         5. 등록 차량 리스트 관리 & CSV 추가저장
       ========================================= */
       const DEFAULT_LIST = `76보3415 홍길동 테스트방문차량\n12가3456 김철수 임원차량\n외교001-001 이영희 대사관의전`;
 
@@ -1204,7 +1340,7 @@
       });
 
       /* =========================================
-         5. 카메라 다중 폴백 초기화 & 렌즈 전환 + OCR 초기화
+         6. 카메라 다중 폴백 초기화 & 렌즈 전환 + OCR 초기화
       ========================================= */
       async function enumerateVideoDevices() {
         try {
@@ -1215,7 +1351,7 @@
       }
 
       async function startCamera(useSpecificDevice = false) {
-        if (shareMode === 'rx') return; // 원격 수신 모드에서는 카메라 실행 안 함
+        if (shareMode === 'rx') return;
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           resultStatus.textContent = '⚠️ 카메라 차단됨 (HTTPS 주소 필요)';
@@ -1321,7 +1457,7 @@
       }
 
       /* =========================================
-         6. 가이드 영역 계산 & 고속 4연사 캡처
+         7. 가이드 영역 계산 & 고속 4연사 캡처
       ========================================= */
       function getCropRect() {
         const vw = video.videoWidth;
@@ -1377,7 +1513,7 @@
       }
 
       /* =========================================
-         7. 스마트 번호판 보정 & 등록차량 전용 알림 + 원격 송신
+         8. 스마트 번호판 보정 & 등록차량 전용 알림 + 음성(TTS) + 원격 송신
       ========================================= */
       function resolvePlateFromOcr(cleanedText) {
         const diploMatch = cleanedText.match(/(외교|영사|준외|준영|국기|협정|대표)(\d{3})(\d{3})/);
@@ -1491,6 +1627,7 @@
 
           if (isRegistered) {
             triggerRegisteredAlert();
+            announceRegisteredVehicleTTS(plate, info);
             showRegisteredPopup(plate, info, shareMode === 'tx' ? `현장 인식 · 방 [${currentRoomCode}] 송신됨` : '현장 카메라 인식');
             publishRegisteredDetection(plate, info);
           }
@@ -1498,7 +1635,7 @@
       }
 
       /* =========================================
-         8. 4연사 고속 캡처 & 순차 판독
+         9. 4연사 고속 캡처 & 순차 판독
       ========================================= */
       const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -1563,7 +1700,7 @@
       }
 
       /* =========================================
-         9. 실시간 움직임 감시 루프
+         10. 실시간 움직임 감시 루프
       ========================================= */
       function monitorMotionLoop() {
         const rect = getCropRect();
@@ -1630,6 +1767,7 @@
       });
 
       // 앱 초기화 및 URL 파라미터(?room=XXXX) 자동 진입 확인
+      loadTtsSetting();
       loadSavedList();
       initOCR();
 
