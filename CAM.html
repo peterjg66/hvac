@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>차량 번호판 감별기 (Gmail 자동발송 통합판)</title>
+  <title>차량 번호판 감별기 (Gmail 자동발송 · 수신자 CSV 백업)</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     :root {
@@ -579,6 +579,11 @@
           <button type="button" id="saveMailBtn" class="success-btn">💾 Gmail 설정 저장</button>
           <button type="button" id="testMailBtn" class="secondary">🚀 테스트 메일 발송</button>
         </div>
+        <div class="list-actions">
+          <button type="button" id="exportMailCsvBtn" class="secondary">📥 수신자 CSV 저장</button>
+          <label class="file-label" for="importMailCsvInput">📂 수신자 CSV 불러오기</label>
+          <input type="file" id="importMailCsvInput" accept=".csv,.txt" />
+        </div>
       </div>
 
       <!-- 등록 차량 리스트 관리 -->
@@ -652,6 +657,8 @@
       const recEmailInputs = document.querySelectorAll('.rec-email');
       const saveMailBtn = document.getElementById('saveMailBtn');
       const testMailBtn = document.getElementById('testMailBtn');
+      const exportMailCsvBtn = document.getElementById('exportMailCsvBtn');
+      const importMailCsvInput = document.getElementById('importMailCsvInput');
       const recipientCount = document.getElementById('recipientCount');
 
       // 차량 리스트 및 로그 요소
@@ -742,8 +749,34 @@
       });
 
       /* =========================================
-         2. Gmail 자동발송 설정 저장/불러오기 및 백그라운드 전송
+         2. Gmail 자동발송 설정 저장/불러오기 & 수신자 CSV 내보내기/가져오기
       ========================================= */
+      function collectRecipientsFromInputs() {
+        const list = [];
+        for (let i = 0; i < 5; i++) {
+          const name = recNameInputs[i].value.trim();
+          const email = recEmailInputs[i].value.trim();
+          if (email) {
+            list.push({ name, email });
+          }
+        }
+        return list;
+      }
+
+      function persistMailSettingsToStorage() {
+        gasWebhookUrl = gasUrlInput.value.trim();
+        mailTemplate = mailTemplateInput.value.trim() || '{차량번호}/{이름}/{비고} 정문통과';
+        mailTemplateInput.value = mailTemplate;
+        mailRecipients = collectRecipientsFromInputs();
+        recipientCount.textContent = mailRecipients.length;
+
+        try {
+          localStorage.setItem('peter_gas_url', gasWebhookUrl);
+          localStorage.setItem('peter_mail_template', mailTemplate);
+          localStorage.setItem('peter_mail_recipients', JSON.stringify(mailRecipients));
+        } catch (e) {}
+      }
+
       function loadMailSettings() {
         try {
           const savedUrl = localStorage.getItem('peter_gas_url') || '';
@@ -770,27 +803,105 @@
       }
 
       saveMailBtn.addEventListener('click', () => {
-        gasWebhookUrl = gasUrlInput.value.trim();
-        mailTemplate = mailTemplateInput.value.trim() || '{차량번호}/{이름}/{비고} 정문통과';
-        mailTemplateInput.value = mailTemplate;
-
-        mailRecipients = [];
-        for (let i = 0; i < 5; i++) {
-          const name = recNameInputs[i].value.trim();
-          const email = recEmailInputs[i].value.trim();
-          if (email) {
-            mailRecipients.push({ name, email });
-          }
-        }
-        recipientCount.textContent = mailRecipients.length;
-
-        try {
-          localStorage.setItem('peter_gas_url', gasWebhookUrl);
-          localStorage.setItem('peter_mail_template', mailTemplate);
-          localStorage.setItem('peter_mail_recipients', JSON.stringify(mailRecipients));
-        } catch (e) {}
-
+        persistMailSettingsToStorage();
         alert(`Gmail 웹 앱 URL과 수신자 ${mailRecipients.length}명이 폰에 저장되었습니다.`);
+      });
+
+      // 수신자 Gmail 목록을 CSV 파일로 저장(다운로드)
+      function escapeCsvCell(val) {
+        const str = String(val ?? '');
+        if (/[",\r\n]/.test(str)) {
+          return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
+      }
+
+      exportMailCsvBtn.addEventListener('click', () => {
+        persistMailSettingsToStorage();
+
+        if (mailRecipients.length === 0) {
+          alert('CSV로 저장할 수신자 이메일을 1명 이상 입력해 주세요.');
+          return;
+        }
+
+        const csvRows = ['순번,담당자명,이메일'];
+        mailRecipients.forEach((rec, idx) => {
+          csvRows.push([
+            idx + 1,
+            escapeCsvCell(rec.name),
+            escapeCsvCell(rec.email)
+          ].join(','));
+        });
+
+        const csvContent = '\uFEFF' + csvRows.join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+
+        const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `수신자_Gmail_목록_${today}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      });
+
+      // 저장된 수신자 CSV 파일 불러오기 (UTF-8 및 EUC-KR 자동 지원)
+      importMailCsvInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const buffer = evt.target.result;
+          let text = '';
+          try {
+            text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+          } catch (err) {
+            text = new TextDecoder('euc-kr').decode(buffer);
+          }
+
+          const lines = text.split(/\r?\n/);
+          const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+          const parsedList = [];
+
+          lines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            const emailMatch = trimmed.match(emailRegex);
+            if (!emailMatch) return;
+
+            const email = emailMatch[0];
+            const cells = trimmed.split(/[,\t]+/).map(c => c.replace(/^"|"$/g, '').trim()).filter(Boolean);
+            let name = '';
+            for (const cell of cells) {
+              if (cell === email) continue;
+              if (/^\d+$/.test(cell)) continue; // 순번 숫자 제외
+              name = cell;
+              break;
+            }
+            parsedList.push({ name, email });
+          });
+
+          if (parsedList.length === 0) {
+            alert('파일에서 유효한 이메일 주소를 찾지 못했습니다.');
+            importMailCsvInput.value = '';
+            return;
+          }
+
+          // 5개 입력칸 초기화 후 불러온 데이터 채우기
+          for (let i = 0; i < 5; i++) {
+            recNameInputs[i].value = parsedList[i] ? parsedList[i].name : '';
+            recEmailInputs[i].value = parsedList[i] ? parsedList[i].email : '';
+          }
+
+          persistMailSettingsToStorage();
+          const extraNotice = parsedList.length > 5 ? `\n(※ 최대 5명까지 등록 가능하여 상위 5명만 반영되었습니다.)` : '';
+          alert(`CSV 파일에서 수신자 ${mailRecipients.length}명을 불러와 저장했습니다.${extraNotice}`);
+          importMailCsvInput.value = '';
+        };
+        reader.readAsArrayBuffer(file);
       });
 
       autoMailToggleBtn.addEventListener('click', () => {
@@ -810,7 +921,7 @@
           .replace(/\{시각\}/g, nowStr);
       }
 
-      // 100% 백그라운드 자동 Gmail 전송 (버튼 클릭 불필요)
+      // 100% 백그라운드 자동 Gmail 전송
       async function sendGmailAutomatically(plate, info) {
         const msgText = buildMailMessage(plate, info);
 
@@ -849,16 +960,7 @@
       }
 
       testMailBtn.addEventListener('click', async () => {
-        gasWebhookUrl = gasUrlInput.value.trim();
-        mailTemplate = mailTemplateInput.value.trim() || '{차량번호}/{이름}/{비고} 정문통과';
-        mailRecipients = [];
-        for (let i = 0; i < 5; i++) {
-          const name = recNameInputs[i].value.trim();
-          const email = recEmailInputs[i].value.trim();
-          if (email) mailRecipients.push({ name, email });
-        }
-        recipientCount.textContent = mailRecipients.length;
-
+        persistMailSettingsToStorage();
         const res = await sendGmailAutomatically('76보3415', { name: '홍길동', note: '테스트발송' });
         if (res.ok) {
           alert(`✅ ${res.count}명의 수신자에게 테스트 메일 발송 신호를 보냈습니다!\n내용: ${res.msgText}`);
@@ -879,7 +981,6 @@
         popupMailStatus.textContent = '⏳ 담당자 Gmail 자동 발송 중...';
         popupOverlay.classList.add('show');
 
-        // 백그라운드 즉시 메일 전송
         const sendResult = await sendGmailAutomatically(plate, info);
         if (sendResult.ok) {
           popupMailStatus.innerHTML = `✅ <strong>Gmail 자동 발송 완료 (${sendResult.count}명)</strong><br>${sendResult.msgText}`;
@@ -912,518 +1013,4 @@
 
       wakeBtn.addEventListener('click', async () => {
         if (!('wakeLock' in navigator)) {
-          alert('이 브라우저는 화면유지를 지원하지 않습니다. 휴대폰 디스플레이 설정에서 자동 꺼짐 시간을 늘려주세요.');
-          return;
-        }
-        try {
-          if (!keepAwakeEnabled) {
-            wakeLock = await navigator.wakeLock.request('screen');
-            keepAwakeEnabled = true;
-            wakeBtn.textContent = '☀️ 화면유지: ON';
-            wakeBtn.classList.add('wake-on');
-          } else {
-            keepAwakeEnabled = false;
-            if (wakeLock) await wakeLock.release();
-            wakeLock = null;
-            wakeBtn.textContent = '☀️ 화면유지: OFF';
-            wakeBtn.classList.remove('wake-on');
-          }
-        } catch (err) {
-          alert('화면유지 오류: ' + err.message);
-        }
-      });
-
-      document.addEventListener('visibilitychange', async () => {
-        if (keepAwakeEnabled && document.visibilityState === 'visible' && 'wakeLock' in navigator) {
-          try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
-        }
-      });
-
-      landscapeBtn.addEventListener('click', async () => {
-        try {
-          if (!document.fullscreenElement) {
-            await document.documentElement.requestFullscreen();
-            if (screen.orientation && screen.orientation.lock) {
-              await screen.orientation.lock('landscape').catch(() => {});
-            }
-            landscapeBtn.textContent = '↩️ 기본화면';
-          } else {
-            if (screen.orientation && screen.orientation.unlock) {
-              screen.orientation.unlock();
-            }
-            await document.exitFullscreen();
-            landscapeBtn.textContent = '↔️ 가로모드';
-          }
-        } catch (err) {
-          alert('휴대폰 상단바에서 [화면 회전]을 켜고 기기를 가로로 눕혀주세요.');
-        }
-      });
-
-      /* =========================================
-         5. 등록 차량 리스트 관리 & CSV 추가저장
-      ========================================= */
-      const DEFAULT_LIST = `76보3415 홍길동 테스트방문차량\n12가3456 김철수 임원차량\n외교001-001 이영희 대사관의전`;
-
-      function parseNameAndNote(restText) {
-        const cleaned = restText.replace(/^[,;\s/-]+/, '').trim();
-        if (!cleaned) return { name: '', note: '' };
-        const parts = cleaned.split(/\s+/);
-        const name = parts[0] || '';
-        const note = parts.slice(1).join(' ') || '';
-        return { name, note };
-      }
-
-      function extractEntriesFromText(rawText) {
-        const result = new Map();
-        const lines = rawText.split(/\r?\n/);
-        const stdRegex = /(\d{2,3}[가-힣]\d{4})/;
-        const diploRegex = /(외교|영사|준외|준영|국기|협정|대표)\s*(\d{3})\s*-?\s*(\d{3})/;
-
-        lines.forEach(line => {
-          const cleanedLine = line.replace(/[,\t]+/g, ' ').replace(/\s+/g, ' ').trim();
-          if (!cleanedLine) return;
-
-          const diploMatch = cleanedLine.match(diploRegex);
-          if (diploMatch) {
-            const plate = `${diploMatch[1]}${diploMatch[2]}-${diploMatch[3]}`;
-            const rest = cleanedLine.replace(diploMatch[0], '');
-            result.set(plate, parseNameAndNote(rest));
-            return;
-          }
-
-          const compactForMatch = cleanedLine.replace(/(\d{2,3}\s*[가-힣])\s*(\d{4})/, '$1$2');
-          const stdMatch = compactForMatch.match(stdRegex);
-          if (stdMatch) {
-            const plate = stdMatch[1];
-            const rest = compactForMatch.replace(plate, '');
-            result.set(plate, parseNameAndNote(rest));
-          }
-        });
-        return result;
-      }
-
-      function syncMapToTextareaAndStorage() {
-        const formattedLines = [];
-        registeredMap.forEach((info, plate) => {
-          const extra = [info.name, info.note].filter(Boolean).join(' ');
-          formattedLines.push(extra ? `${plate} ${extra}` : plate);
-        });
-        const finalStr = formattedLines.join('\n');
-        plateListInput.value = finalStr;
-        listCount.textContent = registeredMap.size;
-        try {
-          localStorage.setItem('peter_plate_list', finalStr);
-        } catch (e) {}
-      }
-
-      function loadSavedList() {
-        let saved = null;
-        try { saved = localStorage.getItem('peter_plate_list'); } catch (e) {}
-        const initialText = saved !== null ? saved : DEFAULT_LIST;
-        registeredMap = extractEntriesFromText(initialText);
-        plateListInput.value = initialText;
-        listCount.textContent = registeredMap.size;
-      }
-
-      saveListBtn.addEventListener('click', () => {
-        registeredMap = extractEntriesFromText(plateListInput.value);
-        syncMapToTextareaAndStorage();
-        alert(`총 ${registeredMap.size}대의 등록 차량 번호가 폰에 저장되었습니다.`);
-      });
-
-      csvFileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          const buffer = evt.target.result;
-          let text = '';
-          try {
-            text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
-          } catch (err) {
-            text = new TextDecoder('euc-kr').decode(buffer);
-          }
-          registeredMap = extractEntriesFromText(plateListInput.value);
-          const beforeCount = registeredMap.size;
-          const importedEntries = extractEntriesFromText(text);
-          importedEntries.forEach((info, plate) => {
-            registeredMap.set(plate, info);
-          });
-          syncMapToTextareaAndStorage();
-          const addedCount = registeredMap.size - beforeCount;
-          alert(`CSV 파일에서 ${importedEntries.size}건을 읽어 기존 리스트에 추가 저장했습니다.\n(신규 추가: ${addedCount}대 / 전체 등록: ${registeredMap.size}대)`);
-          csvFileInput.value = '';
-        };
-        reader.readAsArrayBuffer(file);
-      });
-
-      /* =========================================
-         6. 카메라 & OCR 초기화
-      ========================================= */
-      async function startCamera() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          resultStatus.textContent = '⚠️ 카메라 차단됨 (HTTPS 주소 필요)';
-          return;
-        }
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: { ideal: 'environment' },
-              width: { ideal: 1920 },
-              height: { ideal: 1080 }
-            },
-            audio: false
-          });
-          video.srcObject = stream;
-          await video.play().catch(() => {});
-          prevGrayFrame = null;
-          motionCooldownUntil = Date.now() + 1200;
-          resultStatus.textContent = '카메라 연결 완료 · 대기 중';
-          camRetryBtn.textContent = '📷 연결됨';
-        } catch (err) {
-          resultStatus.textContent = '⚠️ 카메라 권한 필요';
-          alert('카메라 실행 오류: ' + err.message);
-        }
-      }
-
-      camRetryBtn.addEventListener('click', startCamera);
-
-      async function initOCR() {
-        if (typeof Tesseract === 'undefined') {
-          engineStatus.textContent = 'OCR 스크립트 오류';
-          engineStatus.classList.add('err');
-          return;
-        }
-        try {
-          worker = await Tesseract.createWorker('kor');
-          await worker.setParameters({
-            tessedit_pageseg_mode: '6',
-            preserve_interword_spaces: '0'
-          });
-          ocrReady = true;
-          engineStatus.textContent = '주행감지 준비됨';
-          engineStatus.classList.add('ready');
-        } catch (err) {
-          engineStatus.textContent = 'OCR 로딩 실패';
-          engineStatus.classList.add('err');
-        }
-      }
-
-      /* =========================================
-         7. 가이드 영역 계산 & 고속 4연사 캡처
-      ========================================= */
-      function getCropRect() {
-        const vw = video.videoWidth;
-        const vh = video.videoHeight;
-        if (!vw || !vh) return null;
-
-        const baseW = isWideMode ? 0.86 : 0.64;
-        const baseH = isWideMode ? 0.36 : 0.22;
-
-        const cropW = Math.floor((vw * baseW) / zoomFactor);
-        const cropH = Math.floor((vh * baseH) / zoomFactor);
-        const cropX = Math.floor((vw - cropW) / 2);
-        const cropY = Math.floor((vh - cropH) / 2);
-
-        return { cropX, cropY, cropW, cropH };
-      }
-
-      function captureRawToCanvas(targetCanvas) {
-        const rect = getCropRect();
-        if (!rect) return false;
-        const targetW = 640;
-        const targetH = Math.max(80, Math.floor((rect.cropH / rect.cropW) * targetW));
-        targetCanvas.width = targetW;
-        targetCanvas.height = targetH;
-        const tCtx = targetCanvas.getContext('2d');
-        tCtx.drawImage(video, rect.cropX, rect.cropY, rect.cropW, rect.cropH, 0, 0, targetW, targetH);
-        return true;
-      }
-
-      function binarizeCanvasForOcr(sourceCanvas, thumbCanvas) {
-        const w = sourceCanvas.width;
-        const h = sourceCanvas.height;
-        ocrCanvas.width = w;
-        ocrCanvas.height = h;
-        ocrCtx.drawImage(sourceCanvas, 0, 0);
-
-        const imgData = ocrCtx.getImageData(0, 0, w, h);
-        const data = imgData.data;
-
-        for (let i = 0; i < data.length; i += 4) {
-          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-          let bw = gray < binThreshold ? 0 : 255;
-          if (isInverted) bw = 255 - bw;
-          data[i] = data[i + 1] = data[i + 2] = bw;
-        }
-        ocrCtx.putImageData(imgData, 0, 0);
-
-        if (thumbCanvas) {
-          thumbCanvas.width = w;
-          thumbCanvas.height = h;
-          thumbCanvas.getContext('2d').drawImage(ocrCanvas, 0, 0);
-        }
-      }
-
-      /* =========================================
-         8. 스마트 번호판 보정 & 등록차량 전용 알림
-      ========================================= */
-      function resolvePlateFromOcr(cleanedText) {
-        const diploMatch = cleanedText.match(/(외교|영사|준외|준영|국기|협정|대표)(\d{3})(\d{3})/);
-        if (diploMatch) {
-          const plate = `${diploMatch[1]}${diploMatch[2]}-${diploMatch[3]}`;
-          const isRegistered = registeredMap.has(plate);
-          return {
-            plate,
-            isRegistered,
-            info: isRegistered ? registeredMap.get(plate) : { name: '', note: '일반 외교/특수 차량' }
-          };
-        }
-
-        const stdMatch = cleanedText.match(/(\d{2,3})([가-힣])(\d{4})/);
-        if (!stdMatch) return null;
-
-        const frontDigits = stdMatch[1];
-        const hangulChar = stdMatch[2];
-        const backDigits = stdMatch[3];
-        const rawPlate = `${frontDigits}${hangulChar}${backDigits}`;
-
-        if (registeredMap.has(rawPlate)) {
-          return { plate: rawPlate, isRegistered: true, info: registeredMap.get(rawPlate) };
-        }
-
-        if (frontDigits.length === 3) {
-          const twoDigitPlate = `${frontDigits.slice(1)}${hangulChar}${backDigits}`;
-          if (registeredMap.has(twoDigitPlate)) {
-            return { plate: twoDigitPlate, isRegistered: true, info: registeredMap.get(twoDigitPlate) };
-          }
-        }
-
-        const validFront = frontDigits.length === 3 ? frontDigits.slice(1) : frontDigits;
-        for (const [regPlate, regInfo] of registeredMap.entries()) {
-          const regMatch = regPlate.match(/^(\d{2,3})([가-힣])(\d{4})$/);
-          if (regMatch) {
-            if ((regMatch[1] === frontDigits || regMatch[1] === validFront) && regMatch[3] === backDigits) {
-              return { plate: regPlate, isRegistered: true, info: regInfo };
-            }
-          }
-        }
-
-        const displayPlate = (frontDigits.length === 3 && (frontDigits.startsWith('1') || frontDigits.startsWith('0')))
-          ? `${frontDigits.slice(1)}${hangulChar}${backDigits}`
-          : rawPlate;
-
-        return { plate: displayPlate, isRegistered: false, info: { name: '', note: '일반 통과 차량' } };
-      }
-
-      function triggerRegisteredAlert() {
-        if (navigator.vibrate) {
-          navigator.vibrate([180, 80, 180]);
-        }
-        try {
-          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-          osc.frequency.setValueAtTime(1174, audioCtx.currentTime + 0.12);
-          gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          osc.start();
-          osc.stop(audioCtx.currentTime + 0.28);
-        } catch (e) {}
-      }
-
-      function addDetectedPlateToScreen(plate, isRegistered, info) {
-        if (totalDetectedCounter === 0) {
-          logList.innerHTML = '';
-        }
-        totalDetectedCounter++;
-        detectedTotalCount.textContent = totalDetectedCounter;
-
-        const detailText = [info.name, info.note].filter(Boolean).join(' / ') || '등록 차량';
-        const now = new Date().toTimeString().slice(0, 8);
-        const li = document.createElement('li');
-        if (isRegistered) li.className = 'row-reg';
-
-        li.innerHTML = `
-          <span>
-            <span class="${isRegistered ? 'plate-badge-reg' : 'plate-badge-gen'}">${isRegistered ? '등록' : '일반'}</span>
-            <strong>${plate}</strong>
-            <small style="color:var(--muted);">(${detailText})</small>
-          </span>
-          <span class="${isRegistered ? 'tag-ok' : 'tag-gen'}">${now}</span>
-        `;
-        logList.prepend(li);
-
-        if (logList.children.length > 50) {
-          logList.removeChild(logList.lastChild);
-        }
-      }
-
-      function applyRecognizedResult(resolved) {
-        const { plate, isRegistered, info } = resolved;
-        const detailText = [info.name, info.note].filter(Boolean).join(' / ') || (isRegistered ? '등록 차량' : '일반 통과 차량');
-
-        plateDisplay.textContent = plate;
-        resultCard.className = 'result-card ' + (isRegistered ? 'registered' : 'general');
-        resultStatus.textContent = isRegistered ? '✅ 등록된 차량입니다!' : '🚘 일반 차량 인식됨';
-        resultMemo.textContent = detailText;
-
-        const now = Date.now();
-        const lastTime = recentSeenMap.get(plate) || 0;
-        if (now - lastTime > 4000) {
-          recentSeenMap.set(plate, now);
-
-          addDetectedPlateToScreen(plate, isRegistered, info);
-
-          if (isRegistered) {
-            triggerRegisteredAlert();
-            showRegisteredPopupAndSendMail(plate, info);
-          }
-        }
-      }
-
-      /* =========================================
-         9. 4연사 고속 캡처 & 순차 판독
-      ========================================= */
-      const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-      async function executeBurstCaptureAndScan() {
-        if (isBusy || !ocrReady || !worker) return;
-        if (!getCropRect()) return;
-
-        isBusy = true;
-        guideFrame.classList.add('triggered');
-        resultStatus.textContent = '⚡ 차량 감지! 0.18초 4연사 촬영중...';
-
-        thumbCanvases.forEach(c => { c.className = ''; });
-
-        try {
-          for (let i = 0; i < 4; i++) {
-            captureRawToCanvas(burstCanvases[i]);
-            thumbCanvases[i].width = burstCanvases[i].width;
-            thumbCanvases[i].height = burstCanvases[i].height;
-            thumbCanvases[i].getContext('2d').drawImage(burstCanvases[i], 0, 0);
-            if (i < 3) await sleep(60);
-          }
-
-          guideFrame.classList.remove('triggered');
-          resultStatus.textContent = '⏳ 4연사 스냅샷 판독중...';
-
-          const checkOrder = [1, 2, 0, 3];
-          let found = false;
-          let lastRawText = '';
-
-          for (const idx of checkOrder) {
-            thumbCanvases[idx].classList.add('active');
-            binarizeCanvasForOcr(burstCanvases[idx], thumbCanvases[idx]);
-
-            const { data: { text } } = await worker.recognize(ocrCanvas);
-            const cleaned = text.replace(/[^0-9가-힣]/g, '');
-            if (cleaned) lastRawText = cleaned;
-            rawOcr.textContent = `[${idx + 1}컷] 인식 원문: ${cleaned || '(없음)'}`;
-
-            const resolved = resolvePlateFromOcr(cleaned);
-            thumbCanvases[idx].classList.remove('active');
-
-            if (resolved) {
-              thumbCanvases[idx].classList.add('hit');
-              applyRecognizedResult(resolved);
-              found = true;
-              break;
-            }
-          }
-
-          if (!found) {
-            resultStatus.textContent = motionTriggerActive ? '👀 주행 차량 감시 중...' : '스캔 완료 (번호판 미검출)';
-            rawOcr.textContent = `4연사 원문: ${lastRawText || '(글자 미검출)'}`;
-          }
-        } catch (err) {
-          console.error(err);
-        } finally {
-          guideFrame.classList.remove('triggered');
-          prevGrayFrame = null;
-          motionCooldownUntil = Date.now() + 900;
-          isBusy = false;
-        }
-      }
-
-      /* =========================================
-         10. 실시간 움직임 감시 루프
-      ========================================= */
-      function monitorMotionLoop() {
-        const rect = getCropRect();
-        if (rect && !isBusy) {
-          motionCtx.drawImage(video, rect.cropX, rect.cropY, rect.cropW, rect.cropH, 0, 0, 160, 54);
-          const frameData = motionCtx.getImageData(0, 0, 160, 54).data;
-          const pixelCount = 160 * 54;
-          const currGray = new Uint8Array(pixelCount);
-
-          let changed = 0;
-          for (let i = 0, p = 0; i < frameData.length; i += 4, p++) {
-            const g = (frameData[i] * 77 + frameData[i + 1] * 150 + frameData[i + 2] * 29) >> 8;
-            currGray[p] = g;
-            if (prevGrayFrame && Math.abs(g - prevGrayFrame[p]) > 28) {
-              changed++;
-            }
-          }
-
-          if (prevGrayFrame) {
-            const score = Math.min(100, Math.round((changed / pixelCount) * 100));
-            motionMeter.style.width = Math.min(100, score * 2) + '%';
-            motionMeter.style.background = score >= motionThreshold ? '#facc15' : '#22c55e';
-
-            if (motionTriggerActive && ocrReady && Date.now() > motionCooldownUntil && score >= motionThreshold) {
-              executeBurstCaptureAndScan();
-            }
-          }
-          prevGrayFrame = currGray;
-        }
-        requestAnimationFrame(monitorMotionLoop);
-      }
-
-      motionAutoBtn.addEventListener('click', () => {
-        if (!ocrReady) {
-          alert('OCR 엔진이 아직 로딩 중입니다. 상단이 [주행감지 준비됨]으로 바뀌면 눌러주세요.');
-          return;
-        }
-        motionTriggerActive = !motionTriggerActive;
-        prevGrayFrame = null;
-        if (motionTriggerActive) {
-          motionAutoBtn.textContent = '⚡ 주행감지 연사: ON';
-          motionAutoBtn.classList.add('auto-on');
-          resultStatus.textContent = '👀 주행 차량 진입 감시 중...';
-        } else {
-          motionAutoBtn.textContent = '⚡ 주행감지 연사: OFF';
-          motionAutoBtn.classList.remove('auto-on');
-          resultStatus.textContent = '감시 중지됨';
-        }
-      });
-
-      scanBtn.addEventListener('click', () => {
-        if (!ocrReady) {
-          alert('OCR 엔진 로딩 중입니다. 잠시만 기다려주세요.');
-          return;
-        }
-        executeBurstCaptureAndScan();
-      });
-
-      clearLogBtn.addEventListener('click', () => {
-        totalDetectedCounter = 0;
-        detectedTotalCount.textContent = '0';
-        recentSeenMap.clear();
-        logList.innerHTML = '<li style="color:var(--muted); justify-content:center;">인식된 차량 번호가 여기에 실시간으로 표시됩니다.</li>';
-      });
-
-      // 앱 초기화
-      loadMailSettings();
-      loadSavedList();
-      startCamera();
-      initOCR();
-      requestAnimationFrame(monitorMotionLoop);
-    });
-  </script>
-</body>
-</html>
+          alert('이 브라우저는 화면유지를 지원하지 않습니다. 휴대폰 디스플레이 설정에서 자동 꺼짐
